@@ -10,6 +10,8 @@ Properties {
     $msbuildPath                   = 'C:\windows\Microsoft.NET\Framework64\v4.0.30319\msbuild.exe'
 
     $nuGetRepository               = $null
+    $nuGetApiKey                   = (Get-Content 'C:\Dev\buildtools\nuget.txt' -Raw)
+    $nuGetPath                     = "C:\Dev\buildtools\nuget.exe"
 
     $version                       = '0.0.0'
     $package                       = "package\$version"
