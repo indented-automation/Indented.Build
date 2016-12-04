@@ -26,7 +26,7 @@ TaskTearDown {
 
 Task default -Depends Build
 Task Build -Depends Setup, Clean, Version, CreatePackage, MergeModule, ImportDependencies, BuildClasses, UpdateMetadata
-Task BuildTest -Depends Build, ImportTest, PSScriptAnalyzer, UnitTest, CodeCoverage
+Task BuildTest -Depends Build, ImportTest, PSScriptAnalyzer, CodingConventions, UnitTest, CodeCoverage
 Task UAT -Depends BuildTest, PushModule
 Task Release -Depends BuildTest, PublishModule
 
@@ -217,9 +217,24 @@ Task PSScriptAnalyzer {
     }
 }
 
+Task CodingConventions {
+    # Execute coding conventions tests using Pester.
+    # Note: These tests are being executed against the Packaged module, not the code in the repository.
+
+    if (-not (Test-Path 'package\pester')) {
+        $null = New-Item 'package\pester' -ItemType Directory -Force
+    }
+
+    exec {
+        PowerShell.exe -NoProfile -Command "
+            Import-Module '.\$Script:package\$moduleName.psd1' -ErrorAction Stop
+            Invoke-Pester -Path 'build_codingConventions.ps1' -OutputFormat NUnitXml -OutputFile 'package\pester\codingConventions.xml' -EnableExit
+        "
+    }
+}
+
 Task UnitTest {
     # Execute unit tests
-    # This should die if there are no tests. No unit tests is bad.
     # Note: These tests are being executed against the Packaged module, not the code in the repository.
 
     if (-not (Test-Path 'package\pester')) {
