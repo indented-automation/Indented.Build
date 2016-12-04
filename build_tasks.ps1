@@ -26,7 +26,7 @@ TaskTearDown {
 
 Task default -Depends Build
 Task Build -Depends Setup, Clean, Version, CreatePackage, MergeModule, ImportDependencies, BuildClasses, UpdateMetadata
-Task BuildTest -Depends Build, PSScriptAnalyzer, ImportTest, UnitTest, CodeCoverage
+Task BuildTest -Depends Build, ImportTest, PSScriptAnalyzer, UnitTest, CodeCoverage
 Task UAT -Depends BuildTest, PushModule
 Task Release -Depends BuildTest, PublishModule
 
@@ -182,6 +182,28 @@ Task UpdateMetadata {
 #   * It allows the use of the EnableExit parameter
 #   * It works to avoids problems caused by file locks in the build directory 
 
+Task ImportTest {
+    # Attempt to import the module, abort the build if the module does not import.
+    # If the manifest declares a minimum version use PowerShell -version <version> to execute a best-effort test against that version
+
+    $argumentList = @()
+    $psVersion =  Get-Metadata "$Script:package\$moduleName.psd1" -PropertyName PowerShellVersion -ErrorAction SilentlyContinue 
+    if ($null -ne $psVersion -and ([Version]$psVersion).Major -lt $psversionTable.PSVersion.Major) {
+        $argumentList += '-Version', $psVersion
+    }
+    $argumentList += '-NoProfile', '-Command', ('
+        try {{
+            Import-Module ".\{0}\{1}.psd1" -Version "{2}" -ErrorAction Stop
+        }} catch {{
+            $_.Exception.Message
+            exit 1
+        }}
+        exit 0
+    ' -f $Script:package, $moduleName, $Script:version)
+
+    exec { & powershell.exe $argumentList }
+}
+
 Task PSScriptAnalyzer {
     # Execute PSScriptAnalyzer against the module.
     $i = 0
@@ -195,29 +217,6 @@ Task PSScriptAnalyzer {
     }
 }
 
-Task ImportTest {
-    # Attempt to import the module, abort the build if the module does not import.
-    # If the manifest declares a minimum version use PowerShell -version <version> to execute a best-effort test against that version
-
-    $argumentList = @()
-
-    $psVersion =  Get-Metadata "$Script:package\$moduleName.psd1" -PropertyName PowerShellVersion -ErrorAction SilentlyContinue 
-    if ($null -ne $psVersion) {
-        $argumentList += '-Version', $psVersion
-    }
-    $argumentList += '-Command', ('
-        try {{
-            Import-Module ".\{0}\{1}.psd1" -Version "{2}" -ErrorAction Stop
-        }} catch {{
-            $_.Exception.Message
-            exit 1
-        }}
-        exit 0
-    ' -f $Script:package, $moduleName, $Script:version)
-
-    exec { & powershell.exe $argumentList }
-}
-
 Task UnitTest {
     # Execute unit tests
     # This should die if there are no tests. No unit tests is bad.
@@ -227,8 +226,10 @@ Task UnitTest {
         $null = New-Item 'package\pester' -ItemType Directory -Force
     }
 
+    Assert ($null -ne (Get-ChildItem 'tests' -Recurse -Filter '*.tests.ps1')) 'The project must have tests!'
+
     exec {
-        PowerShell.exe -Command "
+        PowerShell.exe -NoProfile -Command "
             Import-Module '.\$Script:package\$moduleName.psd1' -ErrorAction Stop
             Invoke-Pester -Path 'tests' -OutputFormat NUnitXml -OutputFile 'package\pester\Tests.xml' -EnableExit
         "
@@ -242,7 +243,7 @@ Task CodeCoverage {
     #   * It does not muddy the results of the UnitTest set.
 
     exec {
-        PowerShell.exe -Command "
+        PowerShell.exe -NoProfile -Command "
             Import-Module '.\$Script:package\$moduleName.psd1' -ErrorAction Stop
             Invoke-Pester -Path 'tests' -CodeCoverage '.\$Script:package\$moduleName.psm1' -Quiet -PassThru |
                 Export-CliXml '.\package\pester\CodeCoverage.xml'
