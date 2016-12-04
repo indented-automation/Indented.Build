@@ -9,9 +9,9 @@ Properties {
 
     $msbuildPath                   = 'C:\windows\Microsoft.NET\Framework64\v4.0.30319\msbuild.exe'
 
-    $nuGetRepository               = $null
-    $nuGetApiKey                   = (Get-Content 'C:\Dev\buildtools\nuget.txt' -Raw)
-    $nuGetPath                     = "C:\Dev\buildtools\nuget.exe"
+    $nuGetRepository               = 'PSGallery'
+    $nuGetApiKey                   = $null
+    $nuGetPath                     = "C:\Development\buildtools\nuget.exe"
 
     $version                       = '0.0.0'
     $package                       = "package\$version"
@@ -39,6 +39,10 @@ Task Release -Depends BuildTest, PublishModule
 Task Setup {
     Assert (Test-Path $nugetPath) 'Nuget.exe must be available'
 
+    if ($nuGetRepository -ne 'PSGallery' -and $null -ne $nuGetRepository -and $null -eq $nuGetApiKey) {
+        Assert (Test-Path 'C:\Development\buildtools\nuget.txt') 'Nuget API key must be available'
+        $Script:nuGetApiKey = Get-Content 'C:\Development\buildtools\nuget.txt' -Raw
+    }
     if (Test-Path $msbuildPath) {
         Set-Alias msbuild $msbuildPath -Scope Global
     }
@@ -77,7 +81,7 @@ Task MergeModule {
     $fileStream = New-Object System.IO.FileStream("$projectPath\$Script:package\$moduleName.psm1", 'Create')
     $writer = New-Object System.IO.StreamWriter($fileStream)
 
-    Get-ChildItem 'source' -Filter *.ps1 -Recurse | Where-Object { $_.FullName -notlike "*source\examples*" } | ForEach-Object {
+    Get-ChildItem 'source' -Filter *.ps1 -Recurse | Where-Object { $_.FullName -notlike "*source\examples*" -and $_.Extension -eq '.ps1' } | ForEach-Object {
         Get-Content $_.FullName | ForEach-Object {
             $writer.WriteLine($_.TrimEnd())
         }
@@ -270,6 +274,6 @@ Task PublishModule {
     # Publish the module to a repository. Publish-Module handles creating of the nupkg.
 
     if ($null -ne $nuGetRepository) {
-        Publish-Module -Name "$projectPath\$Script:package\$moduleName.psd1" -Repository $nuGetRepository -NuGetApiKey $nuGetApiKey
+        Publish-Module -Name "$projectPath\$Script:package\$moduleName.psd1" -Repository $Script:nuGetRepository # -NuGetApiKey $nuGetApiKey
     }
 }
