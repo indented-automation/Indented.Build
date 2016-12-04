@@ -255,9 +255,9 @@ Task CodeCoverage {
     [Double]$codeCoverage = $pester.CodeCoverage.NumberOfCommandsExecuted / $pester.CodeCoverage.NumberOfCommandsAnalyzed
     $pester.CodeCoverage.MissedCommands | Export-Csv '.\package\pester\CodeCoverage.csv' -NoTypeInformation
 
-    Write-Verbose ''
+    Write-Host ('    CodeCoverage: {0:P2}. See package\pester\CodeCoverage.csv' -f $codeCoverage) -ForegroundColor Cyan
 
-    Assert ($codeCoverage -ge $CodeCoverageThreshold) ('Code coverage is below threshold {0:P}. See package\pester\CodeCoverage.csv' -f $CodeCoverageThreshold)
+    Assert ($codeCoverage -ge $CodeCoverageThreshold) ('Code coverage is below threshold {0:P}.' -f $CodeCoverageThreshold)
 }
 
 Task PushModule {
