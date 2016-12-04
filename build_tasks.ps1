@@ -228,7 +228,7 @@ Task CodingConventions {
     exec {
         PowerShell.exe -NoProfile -Command "
             Import-Module '.\$Script:package\$moduleName.psd1' -ErrorAction Stop
-            Invoke-Pester -Path 'build_codingConventions.ps1' -OutputFormat NUnitXml -OutputFile 'package\pester\codingConventions.xml' -EnableExit
+            Invoke-Pester -Script '.\build_codingConventions.tests.ps1' -OutputFormat NUnitXml -OutputFile 'package\pester\codingConventions.xml' -EnableExit
         "
     }
 }
@@ -246,7 +246,7 @@ Task UnitTest {
     exec {
         PowerShell.exe -NoProfile -Command "
             Import-Module '.\$Script:package\$moduleName.psd1' -ErrorAction Stop
-            Invoke-Pester -Path 'tests' -OutputFormat NUnitXml -OutputFile 'package\pester\Tests.xml' -EnableExit
+            Invoke-Pester -Script 'tests' -OutputFormat NUnitXml -OutputFile 'package\pester\Tests.xml' -EnableExit
         "
     }
 }
@@ -260,7 +260,7 @@ Task CodeCoverage {
     exec {
         PowerShell.exe -NoProfile -Command "
             Import-Module '.\$Script:package\$moduleName.psd1' -ErrorAction Stop
-            Invoke-Pester -Path 'tests' -CodeCoverage '.\$Script:package\$moduleName.psm1' -Quiet -PassThru |
+            Invoke-Pester -Script 'tests' -CodeCoverage '.\$Script:package\$moduleName.psm1' -Quiet -PassThru |
                 Export-CliXml '.\package\pester\CodeCoverage.xml'
         "
     }

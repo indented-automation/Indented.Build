@@ -30,8 +30,12 @@ function Get-ItemFromAst {
     $predicate = [ScriptBlock]::Create(('param( $Ast ); {0}' -f $Query))
     $matchedElements = $Ast.FindAll($Predicate, $true) | Where-Object { $_ }
     if ($matchedElements) {
-        return $matchedElements | ForEach-Object {
-            '{0} at line {1}, position {2}: {3}' -f $_.Extent.Text, $_.Extent.StartLineNumber, $_.Extent.StartColumnNumber, $_.Parent.Extent.Text
+        foreach ($element in $matchedElements) {
+            '{0} at line {1}, position {2}: {3}' -f
+                $element.Extent.Text,
+                $element.Extent.StartLineNumber,
+                $element.Extent.StartColumnNumber,
+                $element.Parent.Extent.Text
         }
     } else {
         return $false 
@@ -265,7 +269,7 @@ function Test-IndentationStyle {
 # Main
 #
 
-$ModuleName = Split-Path (Split-Path $psscriptroot -Parent) -Leaf
+$ModuleName = Split-Path $psscriptroot -Leaf
 
 $ReservedParameterNames = ([System.Management.Automation.Internal.CommonParameters]).GetProperties() | Select-Object -ExpandProperty Name
 $ReservedParameterNames += ([System.Management.Automation.Internal.ShouldProcessParameters]).GetProperties() | Select-Object -ExpandProperty Name
@@ -332,7 +336,7 @@ Describe 'Function structure' {
                 $CommandInfo.CmdletBinding | Should Be $true 
             }
 
-            It 'Must use PSCustomObject in place of New-Object' {
+            It 'Must use PSCustomObject in place of New-Object PSObject -Property' {
                 $StructuralAnalysis.IsUsingNewObject | Should Be $false
             }
 
@@ -342,10 +346,6 @@ Describe 'Function structure' {
 
             It 'Must not contain nested functions' {
                 $StructuralAnalysis.HasNestedFunctions | Should Be $false
-            }
-
-            It "Must not use aliases" {
-                $StructuralAnalysis.IsUsingAliases | Should Be $false
             }
 
             It "Must not mix space and tab indentation" {
@@ -363,23 +363,15 @@ Describe 'Function structure (recommended)' {
         $IndentationStyle = $CommandInfo | Test-IndentationStyle
 
         Context $CommandInfo.Name {
-            if ($CommandInfo.Verb -in 'Set', 'New', 'Remove') {
-                It 'Should implement SupportsShouldProcess' {
-                    $CommandMetadata.SupportsShouldProcess | Should Be $true
-                }
+            It 'Should implement the OutputType attribute if returning output' {
+                $CommandInfo.OutputType.Length | Should BeGreaterThan 0
             }
 
-            if ($CommandInfo.Verb -in 'Get', 'Import') {
-                It 'Should implement the OutputType attribute if returning output' {
-                    $CommandInfo.OutputType.Length | Should BeGreaterThan 0
-                }
+            It 'Should not use throw if CmdLetBinding is declared' {
+                $CommandInfo.CmdletBinding -and $StructuralAnalysis.IsUsingThrow | Should Be $false
             }
 
-            It 'Should not use throw' {
-                $StructuralAnalysis.IsUsingThrow | Should Be $false
-            }
-
-            It 'Should not use Write-Error -Stop' {
+            It 'Should not use Write-Error -ErrorAction Stop' {
                 $StructuralAnalysis.IsUsingWriteErrorStop | Should Be $false 
             }
 
