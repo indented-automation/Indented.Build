@@ -269,7 +269,7 @@ function Test-IndentationStyle {
 # Main
 #
 
-$ModuleName = Split-Path $psscriptroot -Leaf
+$ModuleName = Split-Path (Split-Path $psscriptroot -Parent) -Leaf
 
 $ReservedParameterNames = ([System.Management.Automation.Internal.CommonParameters]).GetProperties() | Select-Object -ExpandProperty Name
 $ReservedParameterNames += ([System.Management.Automation.Internal.ShouldProcessParameters]).GetProperties() | Select-Object -ExpandProperty Name

@@ -5,10 +5,12 @@ Properties {
     $projectPath                   = Split-Path $psscriptroot -Parent
     $moduleName                    = Split-Path $projectPath -Leaf
 
+    $buildToolsPath                = (Resolve-Path "$psscriptroot\..\..\BuildTools").Path
+
     $msbuildPath                   = 'C:\windows\Microsoft.NET\Framework64\v4.0.30319\msbuild.exe'
 
     $nuGetRepository               = 'PSGallery'
-    $nuGetPath                     = (Resolve-Path "$psscriptroot\..\..\BuildTools\nuget.exe").Path
+    $nuGetPath                     = (Resolve-Path "$buildToolsPath\nuget.exe").Path
 
     $version                       = '0.0.0'
     $package                       = "$version"
@@ -22,7 +24,7 @@ TaskTearDown {
 }
 
 Task default -Depends Build
-Task Build -Depends Setup, Clean, Version, CreatePackage, MergeModule, ImportDependencies, BuildClasses, UpdateMetadata
+Task Build -Depends Setup, AddRequiredFiles, Clean, Version, CreatePackage, MergeModule, ImportDependencies, BuildClasses, UpdateMetadata
 Task BuildTest -Depends Build, ImportTest, PSScriptAnalyzer, CodingConventions, UnitTest, CodeCoverage
 Task UAT -Depends BuildTest, PushModule
 Task Release -Depends BuildTest, PublishModule
@@ -43,7 +45,16 @@ Task Setup {
 Task Clean {
     # Delete all content in $Script:packagePath and recreate the directory.
 
-    Get-ChildItem $psscriptroot -Directory | Where-Object { ($_.Name -as [Version]) -or $_.Name -eq $temp } | Remove-Item -Recurse
+    Get-ChildItem -Directory | Where-Object { $_.Name -as [Version] -or $_.Name -eq $temp } | Remove-Item -Recurse
+}
+
+Task AddRequiredFiles { 
+    if (-not (Test-Path .gitignore) -or (Get-Item .gitignore).LastWriteTime -lt (Get-Item "$buildToolsPath\template\.gitignore").LastWriteTime) {
+        Copy-Item "$buildToolsPath\template\.gitignore" .
+    }
+    if (-not (Test-Path LICENSE)) {
+        Copy-Item "$buildToolsPath\template\LICENSE" .
+    }
 }
 
 Task Version {
@@ -166,6 +177,27 @@ Task UpdateMetadata {
             Update-Metadata $path -PropertyName FormatsToProcess -Value (Get-Item "$Script:version\*.Format.ps1xml").Name
         }
     }
+
+    # LicenseUri
+    if (Enable-Metadata $path -PropertyName LicenseUri) {
+        Update-Metadata $path -PropertyName LicenseUri -Value 'https://opensource.org/licenses/MIT'
+    }
+
+    # ProjectUri
+    if (Enable-Metadata $path -PropertyName ProjectUri) {
+        # Attempt to parse the project URI from the list of upstream repositories
+        [String]$pushOrigin = (git remote -v) -like 'origin*(push)'
+        if ($pushOrigin -match 'origin\s+(?<ProjectUri>\S+).git') {
+            Update-Metadata $path -PropertyName ProjectUri -Value $matches.ProjectUri
+        }
+    }
+
+    # Update-Metadata adds empty lines. Work-around to clean up all versions of the file.
+    $content = (Get-Content $path -Raw).TrimEnd()
+    Set-Content $path -Value $content
+
+    $content = (Get-Content "source\$moduleName.psd1" -Raw).TrimEnd()
+    Set-Content "source\$moduleName.psd1" -Value $content
 }
 
 # All testing is performed by invoking PowerShell because:
@@ -202,9 +234,7 @@ Task PSScriptAnalyzer {
         
         $_
     }
-    if ($i -gt 0) {
-        throw 'PSScriptAnalyzer tests are not clean'
-    }
+    Assert ($i -eq 0) 'PSScriptAnalyzer tests are not clean'
 }
 
 Task CodingConventions {
@@ -218,7 +248,7 @@ Task CodingConventions {
     exec {
         PowerShell.exe -NoProfile -Command "
             Import-Module '.\$Script:version\$moduleName.psd1' -ErrorAction Stop
-            Invoke-Pester -Script '.\build_codingConventions.tests.ps1' -OutputFormat NUnitXml -OutputFile 'temp\pester\codingConventions.xml' -EnableExit
+            Invoke-Pester -Script '.\build\build_codingConventions.tests.ps1' -OutputFormat NUnitXml -OutputFile '.\temp\pester\codingConventions.xml' -EnableExit
         "
     }
 }
