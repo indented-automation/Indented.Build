@@ -59,6 +59,16 @@ Task AddRequiredFiles {
 
 Task Version {
     # Increment the version according to the release type.
+    if (-not (Test-Path "source\$moduleName.psd1")) {
+        $params = @{
+            Author        = "Chris Dent"
+            CompanyName   = "Chris Dent"
+            Copyright     = "(c) $((Get-Date).Year) Chris Dent"
+            ModuleVersion = '0.0.1'
+        }
+        New-ModuleManifest "source\$moduleName.psd1" @params
+    }
+
     $Script:version = Update-Metadata "source\$moduleName.psd1" -Increment $releaseType -PassThru
 }
 
@@ -152,6 +162,11 @@ Task BuildClasses {
 
 Task UpdateMetadata {
     $path = "$Script:version\$moduleName.psd1"
+
+    # RootModule
+    if (Enable-Metadata $path -PropertyName RootModule) {
+        Update-Metadata $path -PropertyName RootModule -Value "$moduleName.psm1"
+    }  
 
     # FunctionsToExport
     if (Enable-Metadata $path -PropertyName FunctionsToExport) {
