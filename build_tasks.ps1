@@ -1,19 +1,19 @@
 Properties {
-    $releaseType                   = 'Build'
+    [String]$releaseType           = 'Build'
     [Double]$CodeCoverageThreshold = 0.8 # 80%
 
-    $projectPath                   = Split-Path $psscriptroot -Parent
-    $moduleName                    = Split-Path $projectPath -Leaf
+    [String]$projectPath           = Split-Path $psscriptroot -Parent
+    [String]$moduleName            = Split-Path $projectPath -Leaf
 
-    $buildToolsPath                = (Resolve-Path "$psscriptroot\..\..\BuildTools").Path
+    [String]$buildToolsPath        = (Resolve-Path "$psscriptroot\..\..\BuildTools").Path
 
-    $msbuildPath                   = 'C:\windows\Microsoft.NET\Framework64\v4.0.30319\msbuild.exe'
+    [String]$msbuildPath           = 'C:\windows\Microsoft.NET\Framework64\v4.0.30319\msbuild.exe'
 
-    $nuGetRepository               = 'PSGallery'
-    $nuGetPath                     = (Resolve-Path "$buildToolsPath\nuget.exe").Path
+    [String]$nuGetRepository       = 'PSGallery'
+    [String]$nuGetApiKey           = $(if ($nuGetRepository) { (Get-Content "$buildToolsPath\nugetApiKey.txt" -Raw) } else { '' } )
+    [String]$nuGetPath             = (Resolve-Path "$buildToolsPath\nuget.exe").Path
 
-    $version                       = '0.0.0'
-    $package                       = "$version"
+    [Version]$version              = '0.0.0'
 }
 
 TaskSetup { 
@@ -24,7 +24,7 @@ TaskTearDown {
 }
 
 Task default -Depends Build
-Task Build -Depends Setup, AddRequiredFiles, Clean, Version, CreatePackage, MergeModule, ImportDependencies, BuildClasses, UpdateMetadata
+Task Build -Depends Setup, AddRequiredFiles, Clean, Version, CreateRelease, MergeModule, ImportDependencies, BuildClasses, UpdateMetadata
 Task BuildTest -Depends Build, ImportTest, PSScriptAnalyzer, CodingConventions, UnitTest, CodeCoverage
 Task UAT -Depends BuildTest, PushModule
 Task Release -Depends BuildTest, PublishModule
@@ -62,7 +62,7 @@ Task Version {
     $Script:version = Update-Metadata "source\$moduleName.psd1" -Increment $releaseType -PassThru
 }
 
-Task CreatePackage {
+Task CreateRelease {
     # Create the shell of the module, static files and a manifest.
 
     if (-not (Test-Path $Script:version)) {
@@ -308,6 +308,6 @@ Task PublishModule {
     # Publish the module to a repository. Publish-Module handles creating of the nupkg.
 
     if ($null -ne $nuGetRepository) {
-        # Publish-Module -Name "$projectPath\$Script:package\$moduleName.psd1" -Repository $Script:nuGetRepository
+        Publish-Module -Name "$projectPath\$Script:version\$moduleName.psd1" -Repository $nuGetRepository -NuGetApiKey $nugetApiKey
     }
 }
