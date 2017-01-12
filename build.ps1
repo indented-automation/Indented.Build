@@ -260,9 +260,6 @@ function Version {
         $buildInfo.ModuleName = (Get-Item 'source').GetFiles($buildInfo.Manifest).BaseName
     } else {
         $params = @{
-            Author        = 'Chris Dent'
-            CompanyName   = 'Indented Automation'
-            Copyright     = '(c) {0} Chris Dent' -f (Get-Date).Year
             ModuleVersion = $Script:buildInfo.Version
         }
         New-ModuleManifest $path @params
@@ -489,7 +486,8 @@ function CreateGitHubRelease {
         git push origin $tagName
     }
 
-    $release = Invoke-RestMethod -Method POST -Uri "https://api.github.com/repos/indenetd-automation/$($buildInfo.ModuleName)/releases" -Body @{
+    $gitUsername = git config user.name
+    $release = Invoke-RestMethod -Method POST -Uri "https://api.github.com/repos/$gitUserName/$($buildInfo.ModuleName)/releases" -Body @{
         'tag_name'         = $tagName
         'target_commitish' = 'master'
         'name'             = $releaseName
@@ -497,7 +495,7 @@ function CreateGitHubRelease {
 
     $params = @{
         Method      = 'POST'
-        Uri         = "https://api.github.com/repos/indented-automation/$($buildInfo.ModuleName)/releases/$($release.id)/assets?name=$archiveName"
+        Uri         = "https://api.github.com/repos/$gitUsername/$($buildInfo.ModuleName)/releases/$($release.id)/assets?name=$archiveName"
         ContentType = 'application/zip'
         Body        = (Get-Content $archiveName -Raw -Encoding Byte)
     }
