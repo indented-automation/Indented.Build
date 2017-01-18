@@ -1,15 +1,15 @@
-#Requires -Module Configuration
+#Requires -Module Configuration, PSScriptAnalyzer
 
 [CmdletBinding()]
 param(
-    [ValidateSet('Build', 'Minor', 'Major')]
-    [String]$ReleaseType = 'Build',
-
     [ValidateSet('Build', 'BuildTest', 'BuildRelease')]
     [String]$BuildType = 'Build',
 
-    [String]$ModuleName,
+    [ValidateSet('Build', 'Minor', 'Major')]
+    [String]$ReleaseType = 'Build',
 
+    [String]$ModuleName = (Get-Item $psscriptroot).Name,
+    
     [String]$Nuget = (Resolve-Path "$psscriptroot\..\BuildTools\nuget.exe").Path,
 
     [String]$NugetRepository = '',
@@ -38,6 +38,7 @@ if (Test-Path "$psscriptroot\..\BuildTools\build.ps1") {
 
 function Build {
     'Clean'
+    'TestSyntax'
     'Pack'
     'Version'
     'ImportDependencies'
@@ -64,6 +65,12 @@ function BuildRelease {
 # BuildInfo object shared across functions
 #
 
+# Values are derived from the following (most to least preferred):
+#
+#   Explicit parameter values - Supplied at runtime
+#   Build Metadata            - Loaded from buildMetadata.psd1 (in the build directory)
+#   Default parameter values  - Defined in the param block
+
 $buildInfo = [PSCustomObject]@{
     ModuleName  = $ModuleName
     ReleaseType = $ReleaseType
@@ -73,15 +80,29 @@ $buildInfo = [PSCustomObject]@{
     ApiKey      = $NugetApiKey
 } | Add-Member 'Manifest' -MemberType ScriptProperty -Value { '{0}.psd1' -f $this.ModuleName } -PassThru |
     Add-Member 'RootModule' -MemberType ScriptProperty -Value { '{0}.psm1' -f $this.ModuleName } -PassThru
-if (-not $ModuleName) {
-    $buildInfo.ModuleName = (Get-Item $psscriptroot).Parent.GetDirectories((Split-Path $psscriptroot -Leaf)).Name
+
+# Metadata loader
+if (Test-Path "$psscriptroot\build\buildMetadata.psd1") {
+    $metadata = ConvertFrom-Metadata "$psscriptroot\build\buildMetadata.psd1"
+    foreach ($key in $metadata.Keys) {
+        if ($buildInfo.PSObject.Properties.Item($key)) {
+            $buildInfo.$key = $metadata.$key
+        }
+    }
+}
+
+# Bound parameters
+foreach ($key in $psboundparameters.Keys) {
+    if ($buildInfo.PSObject.Properties.Item($key)) {
+        $buildInfo.$key = $psboundparameters.$key
+    }
 }
 
 #
 # Runner
 #
 
-function Invoke-BuildStep {
+function Invoke-Step {
     param(
         [Parameter(ValueFromPipeline = $true)]
         $step
@@ -103,7 +124,7 @@ function Invoke-BuildStep {
         $stopWatch.Start()
 
         try {
-            . $step
+            $stdOut = . $step
         } catch {
             $result = 'Fail'
             $messageColour = 'Red'
@@ -118,6 +139,8 @@ function Invoke-BuildStep {
             if ($result -eq 'Fail') {
                 Write-Host
             }
+
+            $stdOut
         }
     }
 
@@ -227,6 +250,30 @@ function Clean {
     $null = New-Item build\package -ItemType Directory -Force
 }
 
+function TestSyntax {
+    # Test all files which will be merged for syntax errors.
+
+    $hasSyntaxErrors = $false
+    Get-ChildItem 'source\public', 'source\private', 'InitializeModule.ps1' -Filter *.ps1 -File -Recurse | Where-Object Extension -eq '.ps1' | ForEach-Object {
+        $tokens = $null
+        [System.Management.Automation.Language.ParseError[]]$parseErrors = @()
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput(
+            (Get-Content $_.FullName -Raw),
+            $_.FullName,
+            [Ref]$tokens,
+            [Ref]$parseErrors
+        )
+        if ($parseErrors.Count -gt 0) {
+            $parseErrors
+
+            $hasSyntaxErrors = $true
+        }
+    }
+    if ($hasSyntaxErrors) {
+        throw 'Encountered errors while checking syntax'
+    }
+}
+
 function Pack {
     $path = [System.IO.Path]::Combine($pwd, 'build', 'package', $buildInfo.RootModule)
 
@@ -236,7 +283,7 @@ function Pack {
     $fileStream = New-Object System.IO.FileStream($path, 'Create')
     $writer = New-Object System.IO.StreamWriter($fileStream)
 
-    Get-ChildItem 'source\public', 'source\private', 'InitializeModule.ps1' -Filter *.ps1 -Recurse | Where-Object Extension -eq '.ps1' | ForEach-Object {
+    Get-ChildItem 'source\public', 'source\private', 'InitializeModule.ps1' -Filter *.ps1 -File -Recurse | Where-Object Extension -eq '.ps1' | ForEach-Object {
         Get-Content $_.FullName | ForEach-Object {
             $writer.WriteLine($_.TrimEnd())
         }
@@ -361,9 +408,9 @@ function UpdateMetadata {
     }
 
     # LicenseUri
-    # if (Enable-Metadata $path -PropertyName LicenseUri) {
-    #    Update-Metadata $path -PropertyName LicenseUri -Value 'https://opensource.org/licenses/MIT'
-    # }
+    if (Enable-Metadata $path -PropertyName LicenseUri) {
+        Update-Metadata $path -PropertyName LicenseUri -Value 'https://opensource.org/licenses/MIT'
+    }
 
     # ProjectUri
     if (Enable-Metadata $path -PropertyName ProjectUri) {
@@ -393,24 +440,28 @@ function ImportTest {
     }
     $argumentList += '-NoProfile', '-Command', ('
         try {{
-            Import-Module ".\build\package\{0}" -Version "{1}" -ErrorAction Stop
+            Import-Module ".\build\package\{0}" -ErrorAction Stop
         }} catch {{
             $_.Exception.Message
             exit 1
         }}
         exit 0
-    ' -f $buildInfo.Manifest, $psVersion)
+    ' -f $buildInfo.Manifest)
 
     & powershell.exe $argumentList
 }
 
 function PSScriptAnalyzer {
     # Execute PSScriptAnalyzer against the module.
+
     $i = 0
-    Invoke-ScriptAnalyzer -Path "build\source\$($buildInfo.RootModule)" | ForEach-Object {
-        $i++
-        
-        $_
+
+    Get-ChildItem 'source\public', 'source\private', 'InitializeModule.ps1' -Filter *.ps1 -File -Recurse | Where-Object Extension -eq '.ps1' | ForEach-Object {
+        Invoke-ScriptAnalyzer -Path $_.FullName | ForEach-Object {
+            $i++
+            
+            $_
+        }
     }
     if ($i -gt 0) {
         throw 'PSScriptAnalyzer tests are not clean'
@@ -477,7 +528,7 @@ function CodeCoverage {
 function CreateGitHubRelease {
     # Create a GitHub release and an associated tag.
 
-    # Note quite complete.
+    # Note quite complete. Definitely not tested.
 
     $tagName = 'v{0}' -f $buildInfo.Version
     $releaseName = '{0} {1}' -f $buildInfo.ModuleName, $tagName
@@ -520,11 +571,11 @@ function PublishModule {
 #
 
 Write-Host
-Write-Host "Starting build"
+Write-Host "Building $($buildInfo.ModuleName)"
 Write-Host
 
 try {
-    & $BuildType | Invoke-BuildStep
+    & $BuildType | Invoke-Step
 } catch {
     Write-Error $_
 
@@ -536,7 +587,7 @@ try {
 }
 
 Write-Host
-Write-Host 'Build succeeded!' -ForegroundColor Green
+Write-Host "Build succeeded for version $($buildInfo.Version)!" -ForegroundColor Green
 Write-Host
 
 exit 0
