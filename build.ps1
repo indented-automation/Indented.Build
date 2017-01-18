@@ -1,19 +1,75 @@
 #Requires -Module Configuration, PSScriptAnalyzer
 
-[CmdletBinding()]
+# .SYNOPSIS
+#   Generic PowerShell module build script.
+# .DESCRIPTION
+#   This build script includes tasks which turns PowerShell module from a collection of files into as small a footprint as is sensible.
+#
+#   The following tasks are included (as functions):
+#
+#   Build:
+#
+#     Clean - Remove all artefacts from the build\package directory.
+#     TestSyntax - Check syntax across all files which will be packed.
+#     Pack - Merge public and private functions into a single PSM1.
+#     Version - Update version numbers.
+#     ImportDependencies - nuget restore
+#     BuildClasses - Compiles raw .cs files using Add-Type. Builds C# projects using msbuild.
+#     UpdateMetadata - Update files in the module manifest.
+#
+#  BuildTest (Everything above, then the list below):
+#
+#     ImportTest - Attempt to import the built module and verify it is error free.
+#     PSScriptAnalyzer - Execute PSScriptAnalyzer against the individual files that make up the module.
+#     CodingConventions - Execute the coding convertions tests (if available).
+#     UnitTest - Execute all Unit Tests in tests\unit.
+#     CodeCoverage - Calculate a code coverage statistic.
+#
+#  FunctionalTest (Everything above, then functional tests defined in the FunctionalTestDefinition file).
+# 
+#  Release (Everything above, then the list below):
+#
+#    CreateGitHubRelease - If the project is published, create a release and a git tag.
+#    PublishModule - Publish the module to the specified repository.
+#
+# .NOTES
+#    Author: Chris Dent
+#
+#    Change log:
+#      18/01/2017 - Chris Dent - Added brief documentation.
+
 param(
-    [ValidateSet('Build', 'BuildTest', 'BuildRelease')]
+    # The Build type to execute. Dictates the set of steps which will be executed.
+    [ValidateSet('Build', 'BuildTest', 'FunctionalTest', 'Release')]
     [String]$BuildType = 'Build',
 
+    # The release type to create (if BuildType is PublishRelease). The type is Build by default.
     [ValidateSet('Build', 'Minor', 'Major')]
     [String]$ReleaseType = 'Build',
 
-    [String]$ModuleName = (Get-Item $psscriptroot).Parent.GetDirectories((Split-Path $psscriptroot -Leaf)),
-    
-    [String]$Nuget = (Resolve-Path "$psscriptroot\..\BuildTools\nuget.exe").Path,
+    # A list of tests which should be skipped for this run.
+    [String[]]$SkipTest,
 
+    # The name of the module which is built by this instance of build.ps1.
+    [String]$ModuleName = (Get-Item $psscriptroot).Parent.GetDirectories((Split-Path $psscriptroot -Leaf)).Name,
+
+    # The path to nuget.exe. Required if restoring packages.
+    [String]$Nuget = $(if (Test-Path "$psscriptroot\..\BuildTools\nuget.exe") { "$psscriptroot\..\BuildTools\nuget.exe" }),
+
+    # Functional test set. By default the Validate set is executed.
+    [String]$FunctionalTestSet = 'Validate',
+
+    # The path to a file which describes "functional" tests. Executed after a build when the build type is BuildTest or BuildRelease.
+    #
+    # The functional test definition file must be a script module so Import-Module can address it.
+    #
+    # The names used for functional tests should not overlap with any in this document.
+    [String]$FunctionalTestDefinition = "$psscriptroot\tests\functionalTest.ps1",
+
+    # The nuget repository to publish this module to.
     [String]$NugetRepository = '',
 
+    # An API key to use when publishing modules.
     [String]$NugetApiKey = $(if ($NugetRepository) { (Get-Content "$psscriptroot\..\BuildTools\nugetApiKey.txt" -Raw) })
 )
 
@@ -54,8 +110,13 @@ function BuildTest {
     'UnitTest'
     'CodeCoverage'
 }
-function BuildRelease {
+function FunctionalTest {
     BuildTest
+
+    $buildInfo.functionalTestSteps
+}
+function Release {
+    FunctionalTest
 
     'CreateGitHubRelease'
     'PublishModule'
@@ -72,12 +133,16 @@ function BuildRelease {
 #   Default parameter values  - Defined in the param block
 
 $buildInfo = [PSCustomObject]@{
-    ModuleName  = $ModuleName
-    ReleaseType = $ReleaseType
-    BuildType   = $BuildType
-    Version     = '0.0.1'
-    Repository  = $NugetRepository
-    ApiKey      = $NugetApiKey
+    ModuleName               = $ModuleName
+    Version                  = '0.0.1'
+    ReleaseType              = $ReleaseType
+    BuildType                = $BuildType
+    SkipTest                 = $SkipTest
+    FunctionalTestSet        = $FunctionalTestSet
+    FunctionalTestDefinition = $FunctionalTestDefinition
+    FunctionalTestSteps      = $null
+    Repository               = $NugetRepository
+    ApiKey                   = $NugetApiKey
 } | Add-Member 'Manifest' -MemberType ScriptProperty -Value { '{0}.psd1' -f $this.ModuleName } -PassThru |
     Add-Member 'RootModule' -MemberType ScriptProperty -Value { '{0}.psm1' -f $this.ModuleName } -PassThru
 
@@ -98,8 +163,28 @@ foreach ($key in $psboundparameters.Keys) {
     }
 }
 
+# Attempt to set the path to Nuget if it has not been supplied
+if (-not $Nuget) {
+    if (Test-Path "$psscriptroot\..\BuildTools\nuget.exe") {
+        $Nuget = (Resolve-Path "$psscriptroot\..\BuildTools\nuget.exe").Path
+    }
+}
+
+# Import functional test steps
+if ($BuildType -in 'FunctionalTest', 'Release' -and (Test-Path $FunctionalTestDefinition)) {
+    try {
+        $scriptBlock = [ScriptBlock]::Create((Get-Content $FunctionalTestDefinition -Raw))
+        $module = New-Module -Name FunctionalTest -ScriptBlock $scriptBlock -PassThru
+        Import-Module -ModuleInfo $module
+        
+        $buildInfo.FunctionalTestSteps = & $buildInfo.FunctionalTestSet
+    } catch {
+        throw
+    }
+}
+
 #
-# Runner
+# Executor
 #
 
 function Invoke-Step {
@@ -118,13 +203,13 @@ function Invoke-Step {
         $result = 'Success'
         $messageColour = 'Green'
 
-        Write-Host $step.PadRight(30, ' ') -ForegroundColor Cyan -NoNewline
+        Write-Host $step.Insert(0, '    ').PadRight(34, ' ') -ForegroundColor Cyan -NoNewline
 
         $stopWatch = New-Object System.Diagnostics.StopWatch
         $stopWatch.Start()
 
         try {
-            $stdOut = . $step
+            $stdOut = & $step
         } catch {
             $result = 'Fail'
             $messageColour = 'Red'
@@ -140,7 +225,10 @@ function Invoke-Step {
                 Write-Host
             }
 
-            $stdOut
+            if ($null -ne $stdOut) {
+                $stdOut
+                Write-Host
+            }
         }
     }
 
@@ -240,7 +328,7 @@ function Enable-Metadata {
 }
 
 #
-# Build steps
+# Steps
 #
 
 function Clean {
@@ -472,14 +560,16 @@ function CodingConventions {
     # Execute coding conventions tests using Pester.
     # Note: These tests are being executed against the Packaged module, not the code in the repository.
 
-    if (-not (Test-Path 'build\pester')) {
-        $null = New-Item 'build\pester' -ItemType Directory -Force
-    }
+    if (Test-Path "$psscriptroot\..\BuildTools\CodingConventions.tests.ps1") {
+        if (-not (Test-Path 'build\pester')) {
+            $null = New-Item 'build\pester' -ItemType Directory -Force
+        }
 
-    PowerShell.exe -NoProfile -Command "
-        Import-Module '.\build\package\$($buildInfo.Manifest)' -ErrorAction Stop
-        Invoke-Pester -Script '.\build\build_codingConventions.tests.ps1' -OutputFormat NUnitXml -OutputFile '.\build\pester\codingConventions.xml' -EnableExit
-    "
+        PowerShell.exe -NoProfile -Command "
+            Import-Module '.\build\package\$($buildInfo.Manifest)' -ErrorAction Stop
+            Invoke-Pester -Script '$psscriptroot\..\BuildTools\CodingConventions.tests.ps1' -OutputFormat NUnitXml -OutputFile '.\build\pester\codingConventions.xml' -EnableExit
+        "
+    }
 }
 
 function UnitTest {
@@ -506,7 +596,7 @@ function CodeCoverage {
     #   * It allows re-ordering.
     #   * It does not muddy the results of the UnitTest set.
 
-    PowerShell.exe -NoProfile -Command "
+    $null = PowerShell.exe -NoProfile -Command "
         Import-Module '.\build\package\$($buildInfo.Manifest)' -ErrorAction Stop
         Invoke-Pester -Script 'tests\unit' -CodeCoverage '.\build\package\$($buildInfo.RootModule)' -Quiet -PassThru |
             Export-CliXml '.\build\pester\CodeCoverage.xml'
@@ -515,9 +605,7 @@ function CodeCoverage {
     $pester = Import-CliXml '.\build\pester\CodeCoverage.xml'
 
     [Double]$codeCoverage = $pester.CodeCoverage.NumberOfCommandsExecuted / $pester.CodeCoverage.NumberOfCommandsAnalyzed
-    $pester.CodeCoverage.MissedCommands | Export-Csv '.\temp\pester\CodeCoverage.csv' -NoTypeInformation
-
-    Write-Host ('    CodeCoverage: {0:P2}. See build\pester\CodeCoverage.csv' -f $codeCoverage) -ForegroundColor Yellow
+    $pester.CodeCoverage.MissedCommands | Export-Csv '.\build\pester\CodeCoverage.csv' -NoTypeInformation
 
     if ($codecoverage -lt $CodeCoverageThreshold) {
         $message = 'Code coverage ({0:P}) is below threshold {1:P}.' -f $codeCoverage, $CodeCoverageThreshold 
@@ -570,12 +658,14 @@ function PublishModule {
 # Main
 #
 
+# Getting too complex. This was nice and simple, just a sequence. Now it has conditions.
+
 Write-Host
 Write-Host "Building $($buildInfo.ModuleName)"
 Write-Host
 
 try {
-    & $BuildType | Invoke-Step
+    & $BuildType | Where-Object { $_ -notin $SkipTest } | Invoke-Step
 } catch {
     Write-Error $_
 
