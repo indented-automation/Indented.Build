@@ -8,7 +8,7 @@ param(
     [ValidateSet('Build', 'Minor', 'Major')]
     [String]$ReleaseType = 'Build',
 
-    [String]$ModuleName = (Get-Item $psscriptroot).Name,
+    [String]$ModuleName = (Get-Item $psscriptroot).Parent.GetDirectories((Split-Path $psscriptroot -Leaf)),
     
     [String]$Nuget = (Resolve-Path "$psscriptroot\..\BuildTools\nuget.exe").Path,
 
