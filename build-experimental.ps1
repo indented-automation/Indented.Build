@@ -87,3 +87,5 @@ class Build {
 
     }
 }
+
+# The key to this is simple. Generate a script, one generated, allow component-level updates, otherwise let it fork.
