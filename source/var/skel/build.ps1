@@ -2,15 +2,17 @@
 
 # TODO: Step ordering
 # TODO: AddStep
+# TODO: Step discovery
 
 using namespace System.IO
 using namespace System.Collections.Generic
 using namespace System.Diagnostics
 using namespace System.Management.Automation
 using namespace System.Management.Automation.Language
+using namespace System.Reflection
 
 param(
-    # The build type.
+    # The build type. Cannot use enum yet, it's not declared until this has executed.
     [ValidateSet('Build', 'BuildTest', 'FunctionalTest', 'Release')]
     [String]$BuildType = 'Build',
 
@@ -18,6 +20,7 @@ param(
     [ValidateSet('Build', 'Minor', 'Major')]
     [String]$ReleaseType = 'Build',
 
+    # Return the BuildInfo object as the last item.
     [Switch]$PassThru
 )
 
@@ -38,8 +41,7 @@ class BuildInfo {
     [Version] $Version
 
     # The build type.
-    [ValidateSet('Build', 'BuildTest', 'FunctionalTest', 'Release')]
-    [String] $BuildType = 'Build'
+    [BuildType] $BuildType = 'Build'
 
     # The release type.
     [ValidateSet('Build', 'Minor', 'Major')]
@@ -102,18 +104,31 @@ class BuildInfo {
 
     # Public methods
 
-    [Void] AddStep([String]$StepDefinition) {
-        # One more to go...
+    [Void] AddStep([String]$StepName) {
+        if ($this.GetSteps() -and -not $this.GetStep($StepName)) {
+            # Re-order things into the same order as GetSteps(BuildType).
+            $startOffset = $this.GetSteps()[0].Extent.StartOffset
+            $length = $this.GetSteps()[-1].Extent.EndOffset - $startOffset
+
+            $newStep = (Get-BuildStep $StepName).Trim()
+
+            $scriptContent = Get-Content $pscommandpath -Raw
+
+
+        }
     }
 
+    # Return a step exactly matching a name.
     [PSObject] GetStep([String]$StepName) {
         return $this.GetSteps() | Where-Object Name -eq $StepName
     }
 
+    # Return an ordered list of steps based on the BuildInfo BuildType attribute
+    # then the step name.
     [PSObject[]] GetSteps([String]$BuildType) {
         return $this.GetSteps() |
             Where-Object { $_.BuildStep.BuildType -le [BuildType]$this.BuildType } |
-            Sort-Object { $_.BuildStep.BuildType }, { $_.BuildStep.Order }
+            Sort-Object { $_.BuildStep.BuildType }, { $_.BuildStep.Order }, Name
     }
 
     [PSObject[]] GetSteps() {
@@ -129,16 +144,19 @@ class BuildInfo {
                     param( $ast )
                     
                     $ast -is [FunctionDefinitionAst] -and 
-                    $ast.Name -notin 'Enable-Metadata', 'Invoke-Step' -and 
+                    $ast.Name -notlike '*-*' -and 
                     $ast.Parent -is [NamedBlockAst]
                 },
                 $false
             ) | ForEach-Object {
+                # There's a scope problem here. BuildStep needs to be available or it won't parse.
+                # Might be able to do something about this if the executionContext is tweaked in Get-FunctionInfo.
                 $this.cachedSteps.Add((
                     [PSCustomObject]@{
                         Name        = $_.Name
                         Definition  = $_.ToString()
                         StartOffset = $_.Extent.StartOffset
+                        EndOffset   = $_.Extent.EndOffset
                         Length      = $_.Extent.EndOffset - $_.Extent.StartOffset
                         BuildStep   = (Get-Command $_.Name).ScriptBlock.Attributes |
                             Where-Object { $_ -is [BuildStep] }
@@ -241,6 +259,101 @@ class BuildStep : Attribute {
 }
 
 # Supporting functions
+
+function Get-FunctionInfo {
+    # .SYNOPSIS
+    #   Get an instance of FunctionInfo.
+    # .DESCRIPTION
+    #   FuncitonInfo does not present a public constructor. This function calls an internal / private constructor on FunctionInfo to create a description of a function from a script block or file containing one or more functions.
+    # .PARAMETER IncludeNested
+    #   By default functions nested inside other functions are ignored. Setting this parameter will allow nested functions to be discovered.
+    # .PARAMETER Path
+    #   The path to a file containing one or more functions.
+    # .PARAMETER ScriptBlock
+    #   A script block containing one or more functions.
+    # .INPUTS
+    #   System.String
+    #   System.Management.Automation.ScriptBlock
+    # .OUTPUTS
+    #   System.Management.Automation.FunctionInfo
+    # .EXAMPLE
+    #   Get-ChildItem -Filter *.psm1 | Get-FunctionInfo
+    #
+    #   Get all functions declared within the *.psm1 file and construct FunctionInfo.
+    # .EXAMPLE
+    #   Get-ChildItem C:\Scripts -Filter *.ps1 -Recurse | Get-FunctionInfo
+    #
+    #   Get all functions declared in all ps1 files in C:\Scripts.
+    # .NOTES
+    #   Author: Chris Dent
+    #
+    #   Change log:
+    #     10/12/2015 - Chris Dent - Improved error handling.
+    #     28/10/2015 - Chris Dent - Created.
+
+    [CmdletBinding(DefaultParameterSetName = 'FromPath')]
+    [OutputType([FunctionInfo])]
+    param(
+        [Parameter(Position = 1, ValueFromPipelineByPropertyName = $true, ParameterSetName = 'FromPath')]
+        [Alias('FullName')]
+        [String]$Path,
+
+        [Parameter(ParameterSetName = 'FromScriptBlock')]
+        [ValidateNotNullOrEmpty()]
+        [ScriptBlock]$ScriptBlock,
+
+        [Switch]$IncludeNested
+    )
+
+    begin {
+        $executionContextType = [PowerShell].Assembly.GetType('System.Management.Automation.ExecutionContext')
+        $constructor = [FunctionInfo].GetConstructor(
+            [BindingFlags]'NonPublic, Instance',
+            $null,
+            [CallingConventions]'Standard, HasThis',
+            ([String], [ScriptBlock], $ExecutionContextType),
+            $null
+        )
+    }
+
+    process {
+        if ($pscmdlet.ParameterSetName -eq 'FromPath') {
+            try {
+                $scriptBlock = [ScriptBlock]::Create((Get-Content $Path -Raw))
+            } catch {
+                $ErrorRecord = @{
+                    Exception = $_.Exception.InnerException
+                    ErrorId   = 'InvalidScriptBlock'
+                    Category  = 'OperationStopped'
+                }
+                Write-Error @ErrorRecord
+            }
+        }
+
+        if ($scriptBlock) {
+            $scriptBlock.Ast.FindAll( { 
+                    param( $ast )
+
+                    $ast -is [FunctionDefinitionAst]
+                },
+                $IncludeNested
+            ) | ForEach-Object {
+                try {
+                    $internalScriptBlock = $_.Body.GetScriptBlock()
+                } catch {
+                    # Discard exceptions raised, if any, by this method and skip the content 
+                }
+                if ($internalScriptBlock) {
+                    $constructor.Invoke((
+                        [String]$_.Name,
+                        $internalScriptBlock,
+                        $null
+                    ))
+                }
+            }
+        }
+    }
+}
 
 function Enable-Metadata {
     # .SYNOPSIS
@@ -400,52 +513,6 @@ function Invoke-Step {
 }
 
 # Steps
-
-function TestSyntax {
-    # .SYNOPSIS
-    #   Test for syntax errors in .ps1 files.
-    # .DESCRIPTION
-    #   Test for syntax errors in InitializeModule and all .ps1 files (recursively) beneath:
-    #
-    #     * pwd\source\public
-    #     * pwd\source\private
-    #
-    # .NOTES
-    #   Author: Chris Dent
-    #
-    #   Change log:
-    #     01/02/2017 - Chris Dent - Added help.
-
-    [BuildStep('Build')]
-    param( )
-
-    $hasSyntaxErrors = $false
-    foreach ($path in 'public', 'private', 'InitializeModule.ps1') {
-        $path = Join-Path 'source' $path
-        if (Test-Path $path) {
-            Get-ChildItem $path -Filter *.ps1 -File -Recurse |
-                Where-Object { $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
-                ForEach-Object {
-                    $tokens = $null
-                    [System.Management.Automation.Language.ParseError[]]$parseErrors = @()
-                    $ast = [System.Management.Automation.Language.Parser]::ParseInput(
-                        (Get-Content $_.FullName -Raw),
-                        $_.FullName,
-                        [Ref]$tokens,
-                        [Ref]$parseErrors
-                    )
-                    if ($parseErrors.Count -gt 0) {
-                        $parseErrors | Write-Error
-
-                        $hasSyntaxErrors = $true
-                    }
-                }
-        }
-    }
-    if ($hasSyntaxErrors) {
-        throw 'TestSyntax failed'
-    }
-}
 
 # Run the build
 

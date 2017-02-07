@@ -4,12 +4,15 @@ function Get-BuildStep {
         [String]$StepName
     )
 
-    Get-ChildItem $psscriptroot\steps -File -Recurse |
-        Where-Object { $_.StepName -like $StepName } |
-        ForEach-Object {
-            [PSCustomObject]@{
-                Name = $_.BaseName
-                Definition = (Get-Content $_.FullName) -Raw
-            }
-        }
+    Get-ChildItem $pwd\steps -File -Recurse |
+        Where-Object { $_.BaseName -like $StepName -and $_.Length -gt 0 } |
+        Get-FunctionInfo
+        # |
+        #ForEach-Object {
+        #    [PSCustomObject]@{
+        #        Name       = $_.BaseName
+        #        Definition = $stepDefinition.Length
+        #        BuildStep  = Get-FunctionInfo -ScriptBlock $stepDefinition
+        #    }
+        #}
 }
