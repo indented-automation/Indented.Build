@@ -21,6 +21,13 @@ param(
     [Switch]$PassThru
 )
 
+enum BuildType {
+    Build          = 1
+    BuildTest      = 2
+    FunctionalTest = 3
+    Release        = 4
+}
+
 class BuildInfo {
     # Fields / Properties
 
@@ -103,6 +110,12 @@ class BuildInfo {
         return $this.GetSteps() | Where-Object Name -eq $StepName
     }
 
+    [PSObject[]] GetSteps([String]$BuildType) {
+        return $this.GetSteps() |
+            Where-Object { $_.BuildStep.BuildType -le [BuildType]$this.BuildType } |
+            Sort-Object { $_.BuildStep.BuildType }, { $_.BuildStep.Order }
+    }
+
     [PSObject[]] GetSteps() {
         if ($this.cachedSteps.Count -eq 0) {
             $tokens = $parseErrors = $null
@@ -127,6 +140,8 @@ class BuildInfo {
                         Definition  = $_.ToString()
                         StartOffset = $_.Extent.StartOffset
                         Length      = $_.Extent.EndOffset - $_.Extent.StartOffset
+                        BuildStep   = (Get-Command $_.Name).ScriptBlock.Attributes |
+                            Where-Object { $_ -is [BuildStep] }
                     }
                 ))
             }
@@ -135,20 +150,19 @@ class BuildInfo {
     }
 
     [Void] UpdateStep([String]$StepName) {
-        $this.CanUpdate = $true
         if ($this.CanUpdate) {
             $step = $this.GetStep($StepName)
             if ($step.Definition) {
-                $newStepDefinition = (Get-BuildStep $StepName).Trim()
+                $newStep = (Get-BuildStep $StepName).Trim()
 
-                if ($step.Definition -ne $newStepDefinition) {
+                if ($step.Definition -ne $newStep.Definition) {
                     $scriptContent = Get-Content $pscommandpath -Raw
                     $scriptContent = $scriptContent.Remove(
                                         $step.StartOffset,
                                         $step.Length
                                     ).Insert(
                                         $step.StartOffset,
-                                        $newStepDefinition
+                                        $newStep.Definition
                                     )
                     Set-Content -Path $pscommandpath -Value $scriptContent -NoNewline
 
@@ -211,6 +225,21 @@ class BuildInfo {
     }
 }
 
+[AttributeUsage([AttributeTargets]::Class, Inherited = $false)]
+class BuildStep : Attribute {
+    [BuildType] $BuildType
+    [Int32] $Order = 255
+
+    BuildStep([BuildType]$BuildType) {
+        $this.BuildType = $BuildType
+    }
+
+    BuildStep([BuildType]$BuildType, [Int32]$Order) {
+        $this.BuildType = $BuildType
+        $this.Order = $Order
+    }
+}
+
 # Supporting functions
 
 function Enable-Metadata {
@@ -266,7 +295,7 @@ function Enable-Metadata {
         $manifestContent = Get-Content $Path -Raw
     
         $tokens = $parseErrors = $null
-        $ast = [Language.Parser]::ParseInput(
+        $ast = [Parser]::ParseInput(
             $manifestContent,
             $Path,
             [Ref]$tokens,
@@ -387,24 +416,32 @@ function TestSyntax {
     #   Change log:
     #     01/02/2017 - Chris Dent - Added help.
 
-    $hasSyntaxErrors = $false
-    Get-ChildItem 'source\public', 'source\private', 'InitializeModule.ps1' -Filter *.ps1 -File -Recurse |
-        Where-Object { $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
-        ForEach-Object {
-            $tokens = $null
-            [System.Management.Automation.Language.ParseError[]]$parseErrors = @()
-            $ast = [System.Management.Automation.Language.Parser]::ParseInput(
-                (Get-Content $_.FullName -Raw),
-                $_.FullName,
-                [Ref]$tokens,
-                [Ref]$parseErrors
-            )
-            if ($parseErrors.Count -gt 0) {
-                $parseErrors | Write-Error
+    [BuildStep('Build')]
+    param( )
 
-                $hasSyntaxErrors = $true
-            }
+    $hasSyntaxErrors = $false
+    foreach ($path in 'public', 'private', 'InitializeModule.ps1') {
+        $path = Join-Path 'source' $path
+        if (Test-Path $path) {
+            Get-ChildItem $path -Filter *.ps1 -File -Recurse |
+                Where-Object { $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
+                ForEach-Object {
+                    $tokens = $null
+                    [System.Management.Automation.Language.ParseError[]]$parseErrors = @()
+                    $ast = [System.Management.Automation.Language.Parser]::ParseInput(
+                        (Get-Content $_.FullName -Raw),
+                        $_.FullName,
+                        [Ref]$tokens,
+                        [Ref]$parseErrors
+                    )
+                    if ($parseErrors.Count -gt 0) {
+                        $parseErrors | Write-Error
+
+                        $hasSyntaxErrors = $true
+                    }
+                }
         }
+    }
     if ($hasSyntaxErrors) {
         throw 'TestSyntax failed'
     }
@@ -421,7 +458,7 @@ try {
         break
     }
 
-    foreach ($step in $buildInfo.GetSteps()) {
+    foreach ($step in $buildInfo.GetSteps($BuildType)) {
         $stepInfo = Invoke-Step $step.Name
         $stepInfo
 
@@ -430,6 +467,7 @@ try {
         }
     }
 } catch {
+    # Catches unexpected errors, rethrows errors raised while executing steps.
     throw
 } finally {
     Pop-Location
