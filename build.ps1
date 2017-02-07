@@ -128,9 +128,9 @@ function Release {
 
 # Values are derived from the following (most to least preferred):
 #
-#   Explicit parameter values - Supplied at runtime
-#   Build Metadata            - Loaded from buildMetadata.psd1 (in the build directory)
-#   Default parameter values  - Defined in the param block
+#   Explicit parameter values - Supplied at runtime.
+#   Build Metadata            - Loaded from buildMetadata.psd1 (in the same directory as this script).
+#   Default parameter values  - Defined in the param block.
 
 $buildInfo = [PSCustomObject]@{
     ModuleName               = $ModuleName
@@ -147,8 +147,8 @@ $buildInfo = [PSCustomObject]@{
     Add-Member 'RootModule' -MemberType ScriptProperty -Value { '{0}.psm1' -f $this.ModuleName } -PassThru
 
 # Metadata loader
-if (Test-Path "$psscriptroot\build\buildMetadata.psd1") {
-    $metadata = ConvertFrom-Metadata "$psscriptroot\build\buildMetadata.psd1"
+if (Test-Path "$psscriptroot\buildMetadata.psd1") {
+    $metadata = ConvertFrom-Metadata "$psscriptroot\buildMetadata.psd1"
     foreach ($key in $metadata.Keys) {
         if ($buildInfo.PSObject.Properties.Item($key)) {
             $buildInfo.$key = $metadata.$key
