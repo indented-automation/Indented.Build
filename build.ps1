@@ -22,7 +22,10 @@ param(
     [Switch]$PassThru,
 
     [Parameter(ParameterSetName = 'GetInfo')]
-    [Switch]$GetBuildInfo
+    [Switch]$GetBuildInfo,
+
+    # Suppress messages written by Write-Host.
+    [Switch]$Quiet
 )
 
 enum BuildType {
@@ -392,7 +395,9 @@ function Invoke-Step {
     
     param(
         [Parameter(ValueFromPipeline = $true)]
-        $StepName
+        $StepName,
+
+        [Switch]$Quiet
     )
 
     begin {
@@ -433,10 +438,12 @@ function Invoke-Step {
         $stopWatch.Stop()
         $stepInfo.TimeTaken = $stopWatch.Elapsed
 
-        Write-Host $StepName.PadRight(30) -ForegroundColor Cyan -NoNewline
-        Write-Host -ForegroundColor $messageColour -Object $stepInfo.Result.PadRight(10) -NoNewline
-        Write-Host $stepInfo.StartTime.ToString('t').PadRight(10) -ForegroundColor Gray -NoNewLine
-        Write-Host $stepInfo.TimeTaken -ForegroundColor Gray
+        if (-not $Quiet) {
+            Write-Host $StepName.PadRight(30) -ForegroundColor Cyan -NoNewline
+            Write-Host -ForegroundColor $messageColour -Object $stepInfo.Result.PadRight(10) -NoNewline
+            Write-Host $stepInfo.StartTime.ToString('t').PadRight(10) -ForegroundColor Gray -NoNewLine
+            Write-Host $stepInfo.TimeTaken -ForegroundColor Gray
+        }
 
         return $stepInfo
     }
@@ -668,12 +675,19 @@ try {
         if ($GetBuildInfo) {
             return $buildInfo
         } else {
-            Write-Host
-            Write-Host ('Building {0} ({1})' -f $buildInfo.ModuleName, $buildInfo.Version)
-            Write-Host
+            $quietParam = @{}
+            if ($Quiet) {
+                $quietParam.Quiet = $true
+            }
+
+            if (-not $Quiet) {
+                Write-Host
+                Write-Host ('Building {0} ({1})' -f $buildInfo.ModuleName, $buildInfo.Version)
+                Write-Host
+            }
             
             foreach ($step in $buildInfo.GetSteps($BuildType)) {
-                $stepInfo = Invoke-Step $step.Name
+                $stepInfo = Invoke-Step $step.Name @quietParam
 
                 if ($PassThru) {
                     $stepInfo
@@ -684,17 +698,21 @@ try {
                 }
             }
 
-            Write-Host
-            Write-Host "Build succeeded!" -ForegroundColor Green
-            Write-Host
+            if (-not $Quiet) {
+                Write-Host
+                Write-Host "Build succeeded!" -ForegroundColor Green
+                Write-Host
+            }
 
             $lastexitcode = 0
         }
     }
 } catch {
-    Write-Host
-    Write-Host 'Build Failed!' -ForegroundColor Red
-    Write-Host
+    if (-not $Quiet) {
+        Write-Host
+        Write-Host 'Build Failed!' -ForegroundColor Red
+        Write-Host
+    }
 
     $lastexitcode = 1
 

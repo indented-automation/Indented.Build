@@ -1,6 +1,7 @@
 #Requires -Module Configuration, Pester
 
 # TODO: Automatic step discovery
+# TODO: Ability to update everything else in this script.
 
 using namespace System.IO
 using namespace System.Collections.Generic
@@ -9,6 +10,7 @@ using namespace System.Management.Automation
 using namespace System.Management.Automation.Language
 using namespace System.Reflection
 
+[CmdletBinding(DefaultParameterSetName = 'RunBuild')]
 param(
     # The build type. Cannot use enum yet, it's not declared until this has executed.
     [ValidateSet('Build', 'BuildTest', 'FunctionalTest', 'Release')]
@@ -18,11 +20,16 @@ param(
     [ValidateSet('Build', 'Minor', 'Major')]
     [String]$ReleaseType = 'Build',
 
-    # Return the BuildInfo object as the last item.
+    # Return each the results of each build step as an object.
+    [Parameter(ParameterSetName = 'RunBuild')]
     [Switch]$PassThru,
 
+    # Return the BuildInfo object but do not run the build.
     [Parameter(ParameterSetName = 'GetInfo')]
     [Switch]$GetBuildInfo
+
+    # Suppress messages written by Write-Host.
+    [Switch]$Quiet
 )
 
 enum BuildType {
@@ -434,10 +441,12 @@ function Invoke-Step {
         $stopWatch.Stop()
         $stepInfo.TimeTaken = $stopWatch.Elapsed
 
-        Write-Host $StepName.PadRight(30) -ForegroundColor Cyan -NoNewline
-        Write-Host -ForegroundColor $messageColour -Object $stepInfo.Result.PadRight(10) -NoNewline
-        Write-Host $stepInfo.StartTime.ToString('t').PadRight(10) -ForegroundColor Gray -NoNewLine
-        Write-Host $stepInfo.TimeTaken -ForegroundColor Gray
+        if (-not $Quiet) {
+            Write-Host $StepName.PadRight(30) -ForegroundColor Cyan -NoNewline
+            Write-Host -ForegroundColor $messageColour -Object $stepInfo.Result.PadRight(10) -NoNewline
+            Write-Host $stepInfo.StartTime.ToString('t').PadRight(10) -ForegroundColor Gray -NoNewLine
+            Write-Host $stepInfo.TimeTaken -ForegroundColor Gray
+        }
 
         return $stepInfo
     }
@@ -457,9 +466,16 @@ try {
         if ($GetBuildInfo) {
             return $buildInfo
         } else {
-            Write-Host
-            Write-Host ('Building {0} ({1})' -f $buildInfo.ModuleName, $buildInfo.Version)
-            Write-Host
+            $quietParam = @{}
+            if ($Quiet) {
+                $quietParam.Quiet = $true
+            }
+
+            if (-not $Quiet) {
+                Write-Host
+                Write-Host ('Building {0} ({1})' -f $buildInfo.ModuleName, $buildInfo.Version)
+                Write-Host
+            }
             
             foreach ($step in $buildInfo.GetSteps($BuildType)) {
                 $stepInfo = Invoke-Step $step.Name
@@ -473,17 +489,21 @@ try {
                 }
             }
 
-            Write-Host
-            Write-Host "Build succeeded!" -ForegroundColor Green
-            Write-Host
+            if (-not $Quiet) {
+                Write-Host
+                Write-Host "Build succeeded!" -ForegroundColor Green
+                Write-Host
+            }
 
             $lastexitcode = 0
         }
     }
 } catch {
-    Write-Host
-    Write-Host 'Build Failed!' -ForegroundColor Red
-    Write-Host
+    if (-not $Quiet) {
+        Write-Host
+        Write-Host 'Build Failed!' -ForegroundColor Red
+        Write-Host
+    }
 
     $lastexitcode = 1
 

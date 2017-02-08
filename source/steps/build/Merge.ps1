@@ -5,6 +5,8 @@ function Merge {
     #   Merge the files which represent a module in development into a single psm1 file.
     #
     #   If an InitializeModule script (containing an InitializeModule function) is present it will be called at the end of the .psm1.
+    #
+    #   "using" statements are merged and added to the top of the root module.
     # .NOTES
     #   Author: Chris Dent
     #
@@ -50,6 +52,7 @@ function Merge {
 
     $rootModule = (Get-Content $buildInfo.RootModule -Raw).Trim()
     if ($usingStatements.Count -gt 0) {
+        # Add "using" statements to be start of the psm1
         $rootModule = $rootModule.Insert(0, "`r`n`r`n").Insert(
             0,
             (($usingStatements.ToArray() | Sort-Object | Get-Unique) -join "`r`n")
