@@ -1,8 +1,6 @@
 #Requires -Module Configuration, Pester
 
-# TODO: Step ordering
-# TODO: AddStep
-# TODO: Step discovery
+# TODO: Automatic step discovery
 
 using namespace System.IO
 using namespace System.Collections.Generic
@@ -21,7 +19,10 @@ param(
     [String]$ReleaseType = 'Build',
 
     # Return the BuildInfo object as the last item.
-    [Switch]$PassThru
+    [Switch]$PassThru,
+
+    [Parameter(ParameterSetName = 'GetInfo')]
+    [Switch]$GetBuildInfo
 )
 
 enum BuildType {
@@ -29,6 +30,21 @@ enum BuildType {
     BuildTest      = 2
     FunctionalTest = 3
     Release        = 4
+}
+
+[AttributeUsage([AttributeTargets]::Class, Inherited = $false)]
+class BuildStep : Attribute {
+    [BuildType] $BuildType
+    [Int32] $Order = 255
+
+    BuildStep([BuildType]$BuildType) {
+        $this.BuildType = $BuildType
+    }
+
+    BuildStep([BuildType]$BuildType, [Int32]$Order) {
+        $this.BuildType = $BuildType
+        $this.Order = $Order
+    }
 }
 
 class BuildInfo {
@@ -49,7 +65,10 @@ class BuildInfo {
 
     # The project folder.
     [DirectoryInfo] $Project = ((git rev-parse --show-toplevel) -replace '/', ([Path]::DirectorySeparatorChar))
-
+    
+    # The output directory.
+    [DirectoryInfo] $Output
+    
     # The output directory.
     [DirectoryInfo] $Output
 
@@ -72,7 +91,7 @@ class BuildInfo {
     [Boolean] $StepsUpdated = $false
 
     # Whether or not the script can update itself. Get only.
-    hidden [Boolean] $CanUpdate = $false
+    hidden [Boolean] $CanUpdate = $true
 
     # Whether or not the script should update itself. Get or Set.
     hidden [Boolean] $ShouldUpdate = $true
@@ -105,16 +124,36 @@ class BuildInfo {
     # Public methods
 
     [Void] AddStep([String]$StepName) {
-        if ($this.GetSteps() -and -not $this.GetStep($StepName)) {
-            # Re-order things into the same order as GetSteps(BuildType).
-            $startOffset = $this.GetSteps()[0].Extent.StartOffset
-            $length = $this.GetSteps()[-1].Extent.EndOffset - $startOffset
-
-            $newStep = (Get-BuildStep $StepName).Trim()
-
+        if ($this.CanUpdate) {
             $scriptContent = Get-Content $pscommandpath -Raw
+            $steps = @()
+            $startOffset = 0
 
+            if ($this.GetSteps().Count -gt 0 -and -not $this.GetStep($StepName)) {
+                # Re-order things into the same order as GetSteps(BuildType).
+                
+                $startOffset = $this.GetSteps()[0].StartOffset
+                $scriptContent = $scriptContent.Remove(
+                    $startOffset,
+                    $this.GetSteps()[-1].EndOffset - $startOffset
+                )
 
+                $steps = $this.GetSteps() + @(Get-BuildStep $StepName) |
+                    Sort-Object { $_.BuildStep.BuildType }, { $_.BuildStep.Order }, Name
+            } elseif ($this.GetSteps().Count -eq 0) {
+                $startOffset = $scriptContent.LastIndexOf('# Steps') + ("# Steps`r`n".Length)
+                $scriptContent = $scriptContent.Insert($startOffset, "`r`n`r`n")
+                $startOffset += 2
+
+                $steps = @(Get-BuildStep $StepName)
+            }
+
+            if ($steps.Count -gt 0) {
+                $scriptContent = $scriptContent.Insert($startOffset, ($steps.Definition -join "`r`n`r`n"))
+                Set-Content -Path $pscommandpath -Value $scriptContent -NoNewline
+
+                $this.StepsUpdated = $true
+            }
         }
     }
 
@@ -145,7 +184,8 @@ class BuildInfo {
                     
                     $ast -is [FunctionDefinitionAst] -and 
                     $ast.Name -notlike '*-*' -and 
-                    $ast.Parent -is [NamedBlockAst]
+                    $ast.Parent -is [NamedBlockAst] -and
+                    ($ast.Body.ParamBlock.Attributes | Where-Object { $_.TypeName.ToString() -eq 'BuildStep' }) 
                 },
                 $false
             ) | ForEach-Object {
@@ -171,7 +211,7 @@ class BuildInfo {
         if ($this.CanUpdate) {
             $step = $this.GetStep($StepName)
             if ($step.Definition) {
-                $newStep = (Get-BuildStep $StepName).Trim()
+                $newStep = Get-BuildStep $StepName
 
                 if ($step.Definition -ne $newStep.Definition) {
                     $scriptContent = Get-Content $pscommandpath -Raw
@@ -229,131 +269,22 @@ class BuildInfo {
         }
     }
 
+
     hidden [Void] SetPaths() {
         if ((Split-Path $this.Project -Leaf) -eq $this.ModuleName) {
-            $this.Output = Join-Path $this.Project 'output'
-            $this.ModuleBase = Join-Path $this.Project $this.Version
+            $this.Base = $this.Project
         } else {
-            $this.Output = [Path]::Combine($this.Project, $this.ModuleName, 'output')
-            $this.ModuleBase = [Path]::Combine($this.Project, $this.ModuleName, $this.Version)
+            $this.Base = Join-path $this.Project $this.ModuleName
         }
 
-        $this.RootModule = New-Object FileInfo(Join-Path $this.Output ('{0}.psm1' -f $this.ModuleName))
-        $this.Manifest = New-Object FileInfo(Join-Path $this.Output ('{0}.psd1' -f $this.ModuleName))
-    }
-}
-
-[AttributeUsage([AttributeTargets]::Class, Inherited = $false)]
-class BuildStep : Attribute {
-    [BuildType] $BuildType
-    [Int32] $Order = 255
-
-    BuildStep([BuildType]$BuildType) {
-        $this.BuildType = $BuildType
-    }
-
-    BuildStep([BuildType]$BuildType, [Int32]$Order) {
-        $this.BuildType = $BuildType
-        $this.Order = $Order
+        $this.Output = Join-Path $this.Base 'output'
+        $this.ModuleBase = Join-Path $this.Base $this.Version
+        $this.RootModule = New-Object FileInfo(Join-Path $this.ModuleBase ('{0}.psm1' -f $this.ModuleName))
+        $this.Manifest = New-Object FileInfo(Join-Path $this.ModuleBase ('{0}.psd1' -f $this.ModuleName))
     }
 }
 
 # Supporting functions
-
-function Get-FunctionInfo {
-    # .SYNOPSIS
-    #   Get an instance of FunctionInfo.
-    # .DESCRIPTION
-    #   FuncitonInfo does not present a public constructor. This function calls an internal / private constructor on FunctionInfo to create a description of a function from a script block or file containing one or more functions.
-    # .PARAMETER IncludeNested
-    #   By default functions nested inside other functions are ignored. Setting this parameter will allow nested functions to be discovered.
-    # .PARAMETER Path
-    #   The path to a file containing one or more functions.
-    # .PARAMETER ScriptBlock
-    #   A script block containing one or more functions.
-    # .INPUTS
-    #   System.String
-    #   System.Management.Automation.ScriptBlock
-    # .OUTPUTS
-    #   System.Management.Automation.FunctionInfo
-    # .EXAMPLE
-    #   Get-ChildItem -Filter *.psm1 | Get-FunctionInfo
-    #
-    #   Get all functions declared within the *.psm1 file and construct FunctionInfo.
-    # .EXAMPLE
-    #   Get-ChildItem C:\Scripts -Filter *.ps1 -Recurse | Get-FunctionInfo
-    #
-    #   Get all functions declared in all ps1 files in C:\Scripts.
-    # .NOTES
-    #   Author: Chris Dent
-    #
-    #   Change log:
-    #     10/12/2015 - Chris Dent - Improved error handling.
-    #     28/10/2015 - Chris Dent - Created.
-
-    [CmdletBinding(DefaultParameterSetName = 'FromPath')]
-    [OutputType([FunctionInfo])]
-    param(
-        [Parameter(Position = 1, ValueFromPipelineByPropertyName = $true, ParameterSetName = 'FromPath')]
-        [Alias('FullName')]
-        [String]$Path,
-
-        [Parameter(ParameterSetName = 'FromScriptBlock')]
-        [ValidateNotNullOrEmpty()]
-        [ScriptBlock]$ScriptBlock,
-
-        [Switch]$IncludeNested
-    )
-
-    begin {
-        $executionContextType = [PowerShell].Assembly.GetType('System.Management.Automation.ExecutionContext')
-        $constructor = [FunctionInfo].GetConstructor(
-            [BindingFlags]'NonPublic, Instance',
-            $null,
-            [CallingConventions]'Standard, HasThis',
-            ([String], [ScriptBlock], $ExecutionContextType),
-            $null
-        )
-    }
-
-    process {
-        if ($pscmdlet.ParameterSetName -eq 'FromPath') {
-            try {
-                $scriptBlock = [ScriptBlock]::Create((Get-Content $Path -Raw))
-            } catch {
-                $ErrorRecord = @{
-                    Exception = $_.Exception.InnerException
-                    ErrorId   = 'InvalidScriptBlock'
-                    Category  = 'OperationStopped'
-                }
-                Write-Error @ErrorRecord
-            }
-        }
-
-        if ($scriptBlock) {
-            $scriptBlock.Ast.FindAll( { 
-                    param( $ast )
-
-                    $ast -is [FunctionDefinitionAst]
-                },
-                $IncludeNested
-            ) | ForEach-Object {
-                try {
-                    $internalScriptBlock = $_.Body.GetScriptBlock()
-                } catch {
-                    # Discard exceptions raised, if any, by this method and skip the content 
-                }
-                if ($internalScriptBlock) {
-                    $constructor.Invoke((
-                        [String]$_.Name,
-                        $internalScriptBlock,
-                        $null
-                    ))
-                }
-            }
-        }
-    }
-}
 
 function Enable-Metadata {
     # .SYNOPSIS
@@ -522,24 +453,42 @@ try {
     $buildInfo = New-Object BuildInfo($BuildType, $ReleaseType)
     if ($buildInfo.StepsUpdated) {
         & $pscommandpath @psboundparameters
-        break
-    }
+    } else {
+        if ($GetBuildInfo) {
+            return $buildInfo
+        } else {
+            Write-Host
+            Write-Host ('Building {0} ({1})' -f $buildInfo.ModuleName, $buildInfo.Version)
+            Write-Host
+            
+            foreach ($step in $buildInfo.GetSteps($BuildType)) {
+                $stepInfo = Invoke-Step $step.Name
 
-    foreach ($step in $buildInfo.GetSteps($BuildType)) {
-        $stepInfo = Invoke-Step $step.Name
-        $stepInfo
+                if ($PassThru) {
+                    $stepInfo
+                }
 
-        if ($stepInfo.Result -ne 'Success') {
-            throw $stepinfo.Errors
+                if ($stepInfo.Result -ne 'Success') {
+                    throw $stepinfo.Errors
+                }
+            }
+
+            Write-Host
+            Write-Host "Build succeeded!" -ForegroundColor Green
+            Write-Host
+
+            $lastexitcode = 0
         }
     }
 } catch {
+    Write-Host
+    Write-Host 'Build Failed!' -ForegroundColor Red
+    Write-Host
+
+    $lastexitcode = 1
+
     # Catches unexpected errors, rethrows errors raised while executing steps.
     throw
 } finally {
     Pop-Location
-}
-
-if ($PassThru) {
-    return $buildInfo
 }

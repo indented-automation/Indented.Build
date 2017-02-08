@@ -1,18 +1,35 @@
 function Get-BuildStep {
+    # .SYNOPSIS
+    #   Get a build step definition.
+    # .DESCRIPTION
+    #   Get the definition of a build step.
+    # .INPUTS
+    #   System.String
+    # .OUTPUTS
+    #   System.Management.Automation.PSObject
+    # .NOTES
+    #   Author: Chris Dent
+    #
+    #   Change log:
+    #     08/02/2017 - Chris Dent - Created.
+
     [CmdletBinding()]
     param(
-        [String]$StepName
+        # The name of a step.
+        [String]$StepName = '*'
     )
 
-    Get-ChildItem $pwd\steps -File -Recurse |
+    Get-ChildItem $psscriptroot\steps -File -Recurse |
         Where-Object { $_.BaseName -like $StepName -and $_.Length -gt 0 } |
-        Get-FunctionInfo
-        # |
-        #ForEach-Object {
-        #    [PSCustomObject]@{
-        #        Name       = $_.BaseName
-        #        Definition = $stepDefinition.Length
-        #        BuildStep  = Get-FunctionInfo -ScriptBlock $stepDefinition
-        #    }
-        #}
+        ForEach-Object {
+            $buildStep = ($_ | Get-FunctionInfo).ScriptBlock.Attributes | Where-Object { $_ -is [BuildStep] }
+            
+            [PSCustomObject]@{
+                Name           = $_.BaseName
+                Definition     = (Get-Content $_.FullName -Raw).Trim()
+                BuildStep      = $buildStep
+                BuildStepType  = $buildStep.BuildType
+                BuildSteporder = $buildStep.Order
+            }
+        }
 }

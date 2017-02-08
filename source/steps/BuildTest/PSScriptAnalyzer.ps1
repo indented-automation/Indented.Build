@@ -1,10 +1,13 @@
 function PSScriptAnalyzer {
     # Execute PSScriptAnalyzer against the module.
 
+    [BuildStep('BuildTest')]
+    param( )
+
     $i = 0
 
-    Get-ChildItem 'source\public', 'source\private', 'InitializeModule.ps1' -Filter *.ps1 -File -Recurse | Where-Object Extension -eq '.ps1' | ForEach-Object {
-        Invoke-ScriptAnalyzer -Path $_.FullName | ForEach-Object {
+    foreach ($path in 'source\public', 'source\private', 'source\InitializeModule.ps1') {
+        Invoke-ScriptAnalyzer -Path $path -Recurse | ForEach-Object {
             $i++
             
             $_

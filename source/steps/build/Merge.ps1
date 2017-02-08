@@ -11,19 +11,35 @@ function Merge {
     #   Change log:
     #     01/02/2017 - Chris Dent - Added help.
     
-    $path = Join-Path $buildInfo.BuildPath $buildInfo.RootModule
+    [BuildStep('Build')]
+    param( )
 
-    Get-ChildItem 'source' -Exclude 'public', 'private', 'InitializeModule.ps1' |
-        Copy-Item -Destination build\package -Recurse 
+    $mergeItems = 'enumerations', 'classes', 'private', 'public', 'InitializeModule.ps1'
 
-    $fileStream = New-Object System.IO.FileStream($path, 'Create')
+    Get-ChildItem 'source' -Exclude $mergeItems |
+        Copy-Item -Destination $buildInfo.ModuleBase -Recurse
+
+    $fileStream = [System.IO.File]::Create($buildInfo.RootModule)
     $writer = New-Object System.IO.StreamWriter($fileStream)
 
-    Get-ChildItem 'source\public', 'source\private', 'InitializeModule.ps1' -Filter *.ps1 -File -Recurse | Where-Object Extension -eq '.ps1' | ForEach-Object {
-        Get-Content $_.FullName | ForEach-Object {
-            $writer.WriteLine($_.TrimEnd())
-        }
-        $writer.WriteLine()
+    $usingStatements = New-Object System.Collections.Generic.List[String]
+
+    foreach ($item in $mergeItems) {
+        $path = Join-Path 'source' $item
+
+        Get-ChildItem $path -Filter *.ps1 -File -Recurse |
+            Where-Object { $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
+            ForEach-Object {
+                $functionDefinition = Get-Content $_.FullName | ForEach-Object {
+                    if ($_ -match '^using') {
+                        $usingStatements.Add($_)
+                    } else {
+                        $_.TrimEnd()
+                    }
+                } | Out-String
+                $writer.WriteLine($functionDefinition.Trim())
+                $writer.WriteLine()
+            }
     }
 
     if (Test-Path 'source\InitializeModule.ps1') {
@@ -31,5 +47,13 @@ function Merge {
     }
 
     $writer.Close()
-    $fileStream.Close()
+
+    $rootModule = (Get-Content $buildInfo.RootModule -Raw).Trim()
+    if ($usingStatements.Count -gt 0) {
+        $rootModule = $rootModule.Insert(0, "`r`n`r`n").Insert(
+            0,
+            (($usingStatements.ToArray() | Sort-Object | Get-Unique) -join "`r`n")
+        )
+    }
+    Set-Content -Path $buildInfo.RootModule -Value $rootModule -NoNewline
 }

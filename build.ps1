@@ -1,15 +1,13 @@
 #Requires -Module Configuration, Pester
 
-# TODO: Step ordering
-# TODO: AddStep
-# TODO: Step discovery
-
 using namespace System.IO
 using namespace System.Collections.Generic
 using namespace System.Diagnostics
 using namespace System.Management.Automation
 using namespace System.Management.Automation.Language
+using namespace System.Reflection
 
+[CmdletBinding(DefaultParameterSetName = 'RunBuild')]
 param(
     # The build type. Cannot use enum yet, it's not declared until this has executed.
     [ValidateSet('Build', 'BuildTest', 'FunctionalTest', 'Release')]
@@ -20,7 +18,11 @@ param(
     [String]$ReleaseType = 'Build',
 
     # Return the BuildInfo object as the last item.
-    [Switch]$PassThru
+    [Parameter(ParameterSetName = 'RunBuild')]
+    [Switch]$PassThru,
+
+    [Parameter(ParameterSetName = 'GetInfo')]
+    [Switch]$GetBuildInfo
 )
 
 enum BuildType {
@@ -28,6 +30,21 @@ enum BuildType {
     BuildTest      = 2
     FunctionalTest = 3
     Release        = 4
+}
+
+[AttributeUsage([AttributeTargets]::Class, Inherited = $false)]
+class BuildStep : Attribute {
+    [BuildType] $BuildType
+    [Int32] $Order = 255
+
+    BuildStep([BuildType]$BuildType) {
+        $this.BuildType = $BuildType
+    }
+
+    BuildStep([BuildType]$BuildType, [Int32]$Order) {
+        $this.BuildType = $BuildType
+        $this.Order = $Order
+    }
 }
 
 class BuildInfo {
@@ -48,6 +65,9 @@ class BuildInfo {
 
     # The project folder.
     [DirectoryInfo] $Project = ((git rev-parse --show-toplevel) -replace '/', ([Path]::DirectorySeparatorChar))
+
+    # The base directory for the build target.
+    [DirectoryInfo] $Base
 
     # The output directory.
     [DirectoryInfo] $Output
@@ -71,7 +91,7 @@ class BuildInfo {
     [Boolean] $StepsUpdated = $false
 
     # Whether or not the script can update itself. Get only.
-    hidden [Boolean] $CanUpdate = $false
+    hidden [Boolean] $CanUpdate = $true
 
     # Whether or not the script should update itself. Get or Set.
     hidden [Boolean] $ShouldUpdate = $true
@@ -103,18 +123,51 @@ class BuildInfo {
 
     # Public methods
 
-    [Void] AddStep([String]$StepDefinition) {
-        # One more to go...
+    [Void] AddStep([String]$StepName) {
+        if ($this.CanUpdate) {
+            $scriptContent = Get-Content $pscommandpath -Raw
+            $steps = @()
+            $startOffset = 0
+
+            if ($this.GetSteps().Count -gt 0 -and -not $this.GetStep($StepName)) {
+                # Re-order things into the same order as GetSteps(BuildType).
+                
+                $startOffset = $this.GetSteps()[0].StartOffset
+                $scriptContent = $scriptContent.Remove(
+                    $startOffset,
+                    $this.GetSteps()[-1].EndOffset - $startOffset
+                )
+
+                $steps = $this.GetSteps() + @(Get-BuildStep $StepName) |
+                    Sort-Object { $_.BuildStep.BuildType }, { $_.BuildStep.Order }, Name
+            } elseif ($this.GetSteps().Count -eq 0) {
+                $startOffset = $scriptContent.LastIndexOf('# Steps') + ("# Steps`r`n".Length)
+                $scriptContent = $scriptContent.Insert($startOffset, "`r`n`r`n")
+                $startOffset += 2
+
+                $steps = @(Get-BuildStep $StepName)
+            }
+
+            if ($steps.Count -gt 0) {
+                $scriptContent = $scriptContent.Insert($startOffset, ($steps.Definition -join "`r`n`r`n"))
+                Set-Content -Path $pscommandpath -Value $scriptContent -NoNewline
+
+                $this.StepsUpdated = $true
+            }
+        }
     }
 
+    # Return a step exactly matching a name.
     [PSObject] GetStep([String]$StepName) {
         return $this.GetSteps() | Where-Object Name -eq $StepName
     }
 
+    # Return an ordered list of steps based on the BuildInfo BuildType attribute
+    # then the step name.
     [PSObject[]] GetSteps([String]$BuildType) {
         return $this.GetSteps() |
             Where-Object { $_.BuildStep.BuildType -le [BuildType]$this.BuildType } |
-            Sort-Object { $_.BuildStep.BuildType }, { $_.BuildStep.Order }
+            Sort-Object { $_.BuildStep.BuildType }, { $_.BuildStep.Order }, Name
     }
 
     [PSObject[]] GetSteps() {
@@ -130,16 +183,20 @@ class BuildInfo {
                     param( $ast )
                     
                     $ast -is [FunctionDefinitionAst] -and 
-                    $ast.Name -notin 'Enable-Metadata', 'Invoke-Step' -and 
-                    $ast.Parent -is [NamedBlockAst]
+                    $ast.Name -notlike '*-*' -and 
+                    $ast.Parent -is [NamedBlockAst] -and
+                    ($ast.Body.ParamBlock.Attributes | Where-Object { $_.TypeName.ToString() -eq 'BuildStep' }) 
                 },
                 $false
             ) | ForEach-Object {
+                # There's a scope problem here. BuildStep needs to be available or it won't parse.
+                # Might be able to do something about this if the executionContext is tweaked in Get-FunctionInfo.
                 $this.cachedSteps.Add((
                     [PSCustomObject]@{
                         Name        = $_.Name
                         Definition  = $_.ToString()
                         StartOffset = $_.Extent.StartOffset
+                        EndOffset   = $_.Extent.EndOffset
                         Length      = $_.Extent.EndOffset - $_.Extent.StartOffset
                         BuildStep   = (Get-Command $_.Name).ScriptBlock.Attributes |
                             Where-Object { $_ -is [BuildStep] }
@@ -154,7 +211,7 @@ class BuildInfo {
         if ($this.CanUpdate) {
             $step = $this.GetStep($StepName)
             if ($step.Definition) {
-                $newStep = (Get-BuildStep $StepName).Trim()
+                $newStep = Get-BuildStep $StepName
 
                 if ($step.Definition -ne $newStep.Definition) {
                     $scriptContent = Get-Content $pscommandpath -Raw
@@ -214,30 +271,15 @@ class BuildInfo {
 
     hidden [Void] SetPaths() {
         if ((Split-Path $this.Project -Leaf) -eq $this.ModuleName) {
-            $this.Output = Join-Path $this.Project 'output'
-            $this.ModuleBase = Join-Path $this.Project $this.Version
+            $this.Base = $this.Project
         } else {
-            $this.Output = [Path]::Combine($this.Project, $this.ModuleName, 'output')
-            $this.ModuleBase = [Path]::Combine($this.Project, $this.ModuleName, $this.Version)
+            $this.Base = Join-path $this.Project $this.ModuleName
         }
 
-        $this.RootModule = New-Object FileInfo(Join-Path $this.Output ('{0}.psm1' -f $this.ModuleName))
-        $this.Manifest = New-Object FileInfo(Join-Path $this.Output ('{0}.psd1' -f $this.ModuleName))
-    }
-}
-
-[AttributeUsage([AttributeTargets]::Class, Inherited = $false)]
-class BuildStep : Attribute {
-    [BuildType] $BuildType
-    [Int32] $Order = 255
-
-    BuildStep([BuildType]$BuildType) {
-        $this.BuildType = $BuildType
-    }
-
-    BuildStep([BuildType]$BuildType, [Int32]$Order) {
-        $this.BuildType = $BuildType
-        $this.Order = $Order
+        $this.Output = Join-Path $this.Base 'output'
+        $this.ModuleBase = Join-Path $this.Base $this.Version
+        $this.RootModule = New-Object FileInfo(Join-Path $this.ModuleBase ('{0}.psm1' -f $this.ModuleName))
+        $this.Manifest = New-Object FileInfo(Join-Path $this.ModuleBase ('{0}.psd1' -f $this.ModuleName))
     }
 }
 
@@ -402,6 +444,112 @@ function Invoke-Step {
 
 # Steps
 
+function UpdateMetadata {
+    # .SYNOPSIS
+    #   Update the module manifest.
+    # .DESCRIPTION
+    #   Update the module manifest with:
+    #
+    #     * RootModule
+    #     * FunctionsToExport
+    #     * RequiredAssemblies
+    #     * FormatsToProcess
+    #     * LicenseUri
+    #     * ProjectUri
+    #
+    # .NOTES
+    #   Author: Chris Dent
+    #
+    #   Change log:
+    #     01/02/2017 - Chris Dent - Added help.
+
+    [BuildStep('Build')]
+    param( )
+
+    # Version
+    Update-Metadata $buildInfo.Manifest -PropertyName ModuleVersion -Value $buildInfo.Version
+    Update-Metadata (Join-Path 'source' $buildInfo.Manifest.Name) -PropertyName ModuleVersion -Value $buildInfo.Version
+
+
+    # RootModule
+    if (Enable-Metadata $buildInfo.Manifest -PropertyName RootModule) {
+        Update-Metadata $buildInfo.Manifest -PropertyName RootModule -Value $buildInfo.RootModule.Name
+    }
+
+    # FunctionsToExport
+    if (Enable-Metadata $buildInfo.Manifest -PropertyName FunctionsToExport) {
+        Update-Metadata $buildInfo.Manifest -PropertyName FunctionsToExport -Value (
+            (Get-ChildItem 'source\public' -Filter '*.ps1' -File -Recurse).BaseName
+        )
+    }
+
+    # RequiredAssemblies
+    if (Test-Path 'build\package\libraries\*.dll') {
+        if (Enable-Metadata $buildInfo.Manifest -PropertyName RequiredAssemblies) {
+            Update-Metadata $buildInfo.Manifest -PropertyName RequiredAssemblies -Value (
+                (Get-Item 'build\package\libraries\*.dll').Name | ForEach-Object {
+                    Join-Path 'libraries' $_
+                }
+            )
+        }
+    }
+
+    # FormatsToProcess
+    if (Test-Path 'build\package\*.Format.ps1xml') {
+        if (Enable-Metadata $buildInfo.Manifest -PropertyName FormatsToProcess) {
+            Update-Metadata $buildInfo.Manifest -PropertyName FormatsToProcess -Value (Get-Item 'build\package\*.Format.ps1xml').Name
+        }
+    }
+
+    # LicenseUri
+    if (Enable-Metadata $buildInfo.Manifest -PropertyName LicenseUri) {
+        Update-Metadata $buildInfo.Manifest -PropertyName LicenseUri -Value 'https://opensource.org/licenses/MIT'
+    }
+
+    # ProjectUri
+    if (Enable-Metadata $buildInfo.Manifest -PropertyName ProjectUri) {
+        # Attempt to parse the project URI from the list of upstream repositories
+        [String]$pushOrigin = (git remote -v) -like 'origin*(push)'
+        if ($pushOrigin -match 'origin\s+(?<ProjectUri>\S+).git') {
+            Update-Metadata $buildInfo.Manifest -PropertyName ProjectUri -Value $matches.ProjectUri
+        }
+    }
+
+    # Update-Metadata adds empty lines. Work-around to clean up all versions of the file.
+    $content = (Get-Content $buildInfo.Manifest -Raw).TrimEnd()
+    Set-Content $buildInfo.Manifest -Value $content
+
+    $content = (Get-Content "source\$($buildInfo.Manifest.Name)" -Raw).TrimEnd()
+    Set-Content "source\$($buildInfo.Manifest.Name)" -Value $content
+}
+
+function Clean {
+    # .SYNOPSIS
+    #   Clean the last build of this module from the build directory.
+    # .NOTES
+    #   Author: Chris Dent
+    #
+    #   Change log:
+    #     01/02/2017 - Chris Dent - Added help.
+
+    [BuildStep('Build', Order = 0)]
+    param( )
+
+    if (Get-Module $buildInfo.ModuleName) {
+        Remove-Module $buildInfo.ModuleName
+    }
+
+    Get-ChildItem -Directory |
+        Where-Object { [Version]::TryParse($_.Name, [Ref]$null) } |
+        Remove-Item -Recurse -Force
+    if (Test-Path $buildInfo.Output) {
+        Remove-Item $buildInfo.Output -Recurse -Force
+    }
+
+    $null = New-Item $buildInfo.Output -ItemType Directory -Force
+    $null = New-Item $buildInfo.ModuleBase -ItemType Directory -Force
+}
+
 function TestSyntax {
     # .SYNOPSIS
     #   Test for syntax errors in .ps1 files.
@@ -417,7 +565,7 @@ function TestSyntax {
     #   Change log:
     #     01/02/2017 - Chris Dent - Added help.
 
-    [BuildStep('Build')]
+    [BuildStep('Build', Order = 1)]
     param( )
 
     $hasSyntaxErrors = $false
@@ -448,6 +596,66 @@ function TestSyntax {
     }
 }
 
+function Merge {
+    # .SYNOPSIS
+    #   Merge source files into a module.
+    # .DESCRIPTION
+    #   Merge the files which represent a module in development into a single psm1 file.
+    #
+    #   If an InitializeModule script (containing an InitializeModule function) is present it will be called at the end of the .psm1.
+    # .NOTES
+    #   Author: Chris Dent
+    #
+    #   Change log:
+    #     01/02/2017 - Chris Dent - Added help.
+    
+    [BuildStep('Build')]
+    param( )
+
+    $mergeItems = 'enumerations', 'classes', 'private', 'public', 'InitializeModule.ps1'
+
+    Get-ChildItem 'source' -Exclude $mergeItems |
+        Copy-Item -Destination $buildInfo.ModuleBase -Recurse
+
+    $fileStream = [System.IO.File]::Create($buildInfo.RootModule)
+    $writer = New-Object System.IO.StreamWriter($fileStream)
+
+    $usingStatements = New-Object System.Collections.Generic.List[String]
+
+    foreach ($item in $mergeItems) {
+        $path = Join-Path 'source' $item
+
+        Get-ChildItem $path -Filter *.ps1 -File -Recurse |
+            Where-Object { $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
+            ForEach-Object {
+                $functionDefinition = Get-Content $_.FullName | ForEach-Object {
+                    if ($_ -match '^using') {
+                        $usingStatements.Add($_)
+                    } else {
+                        $_.TrimEnd()
+                    }
+                } | Out-String
+                $writer.WriteLine($functionDefinition.Trim())
+                $writer.WriteLine()
+            }
+    }
+
+    if (Test-Path 'source\InitializeModule.ps1') {
+        $writer.WriteLine('InitializeModule')
+    }
+
+    $writer.Close()
+
+    $rootModule = (Get-Content $buildInfo.RootModule -Raw).Trim()
+    if ($usingStatements.Count -gt 0) {
+        $rootModule = $rootModule.Insert(0, "`r`n`r`n").Insert(
+            0,
+            (($usingStatements.ToArray() | Sort-Object | Get-Unique) -join "`r`n")
+        )
+    }
+    Set-Content -Path $buildInfo.RootModule -Value $rootModule -NoNewline
+}
+
 # Run the build
 
 try {
@@ -456,24 +664,42 @@ try {
     $buildInfo = New-Object BuildInfo($BuildType, $ReleaseType)
     if ($buildInfo.StepsUpdated) {
         & $pscommandpath @psboundparameters
-        break
-    }
+    } else {
+        if ($GetBuildInfo) {
+            return $buildInfo
+        } else {
+            Write-Host
+            Write-Host ('Building {0} ({1})' -f $buildInfo.ModuleName, $buildInfo.Version)
+            Write-Host
+            
+            foreach ($step in $buildInfo.GetSteps($BuildType)) {
+                $stepInfo = Invoke-Step $step.Name
 
-    foreach ($step in $buildInfo.GetSteps($BuildType)) {
-        $stepInfo = Invoke-Step $step.Name
-        $stepInfo
+                if ($PassThru) {
+                    $stepInfo
+                }
 
-        if ($stepInfo.Result -ne 'Success') {
-            throw $stepinfo.Errors
+                if ($stepInfo.Result -ne 'Success') {
+                    throw $stepinfo.Errors
+                }
+            }
+
+            Write-Host
+            Write-Host "Build succeeded!" -ForegroundColor Green
+            Write-Host
+
+            $lastexitcode = 0
         }
     }
 } catch {
+    Write-Host
+    Write-Host 'Build Failed!' -ForegroundColor Red
+    Write-Host
+
+    $lastexitcode = 1
+
     # Catches unexpected errors, rethrows errors raised while executing steps.
     throw
 } finally {
     Pop-Location
-}
-
-if ($PassThru) {
-    return $buildInfo
 }
