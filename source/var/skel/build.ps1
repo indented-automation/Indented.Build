@@ -26,7 +26,7 @@ param(
 
     # Return the BuildInfo object but do not run the build.
     [Parameter(ParameterSetName = 'GetInfo')]
-    [Switch]$GetBuildInfo
+    [Switch]$GetBuildInfo,
 
     # Suppress messages written by Write-Host.
     [Switch]$Quiet
@@ -76,9 +76,6 @@ class BuildInfo {
     # The output directory.
     [DirectoryInfo] $Output
     
-    # The output directory.
-    [DirectoryInfo] $Output
-
     # The generated module base path.
     [DirectoryInfo] $ModuleBase
 
@@ -98,7 +95,7 @@ class BuildInfo {
     [Boolean] $StepsUpdated = $false
 
     # Whether or not the script can update itself. Get only.
-    hidden [Boolean] $CanUpdate = $true
+    hidden [Boolean] $CanUpdate = $false
 
     # Whether or not the script should update itself. Get or Set.
     hidden [Boolean] $ShouldUpdate = $true
@@ -139,15 +136,15 @@ class BuildInfo {
             if ($this.GetSteps().Count -gt 0 -and -not $this.GetStep($StepName)) {
                 # Re-order things into the same order as GetSteps(BuildType).
                 
-                $startOffset = $this.GetSteps()[0].StartOffset
+                $startOffset = $this.cachedSteps[0].StartOffset
                 $scriptContent = $scriptContent.Remove(
                     $startOffset,
-                    $this.GetSteps()[-1].EndOffset - $startOffset
+                    $this.cachedSteps[-1].EndOffset - $startOffset
                 )
 
-                $steps = $this.GetSteps() + @(Get-BuildStep $StepName) |
+                $steps = $this.cachedSteps.ToArray() + @(Get-BuildStep $StepName) |
                     Sort-Object { $_.BuildStep.BuildType }, { $_.BuildStep.Order }, Name
-            } elseif ($this.GetSteps().Count -eq 0) {
+            } elseif ($this.cachedSteps.Count -eq 0) {
                 $startOffset = $scriptContent.LastIndexOf('# Steps') + ("# Steps`r`n".Length)
                 $scriptContent = $scriptContent.Insert($startOffset, "`r`n`r`n")
                 $startOffset += 2
@@ -279,13 +276,13 @@ class BuildInfo {
 
     hidden [Void] SetPaths() {
         if ((Split-Path $this.Project -Leaf) -eq $this.ModuleName) {
-            $this.Base = $this.Project
+            $base = $this.Project
         } else {
-            $this.Base = Join-path $this.Project $this.ModuleName
+            $base = Join-path $this.Project $this.ModuleName
         }
 
-        $this.Output = Join-Path $this.Base 'output'
-        $this.ModuleBase = Join-Path $this.Base $this.Version
+        $this.Output = Join-Path $base 'output'
+        $this.ModuleBase = Join-Path $base $this.Version
         $this.RootModule = New-Object FileInfo(Join-Path $this.ModuleBase ('{0}.psm1' -f $this.ModuleName))
         $this.Manifest = New-Object FileInfo(Join-Path $this.ModuleBase ('{0}.psd1' -f $this.ModuleName))
     }
@@ -452,6 +449,23 @@ function Invoke-Step {
     }
 }
 
+function Write-Message {
+    param(
+        [String]$Object,
+
+        [ConsoleColor]$ForegroundColor,
+
+        [Switch]$Quiet
+    )
+
+    $null = $psboundparameters.Remove('Quiet')
+    if (-not $Quiet) {
+        Write-Host
+        Write-Host @psboundparameters
+        Write-Host
+    }
+}
+
 # Steps
 
 # Run the build
@@ -471,11 +485,7 @@ try {
                 $quietParam.Quiet = $true
             }
 
-            if (-not $Quiet) {
-                Write-Host
-                Write-Host ('Building {0} ({1})' -f $buildInfo.ModuleName, $buildInfo.Version)
-                Write-Host
-            }
+            Write-Message ('Building {0} ({1})' -f $buildInfo.ModuleName, $buildInfo.Version) @quietParam
             
             foreach ($step in $buildInfo.GetSteps($BuildType)) {
                 $stepInfo = Invoke-Step $step.Name
@@ -489,21 +499,13 @@ try {
                 }
             }
 
-            if (-not $Quiet) {
-                Write-Host
-                Write-Host "Build succeeded!" -ForegroundColor Green
-                Write-Host
-            }
+            Write-Message "Build succeeded!" -ForegroundColor Green @quietParam
 
             $lastexitcode = 0
         }
     }
 } catch {
-    if (-not $Quiet) {
-        Write-Host
-        Write-Host 'Build Failed!' -ForegroundColor Red
-        Write-Host
-    }
+    Write-Message 'Build Failed!' -ForegroundColor Red @quietParam
 
     $lastexitcode = 1
 

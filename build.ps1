@@ -1,5 +1,8 @@
 #Requires -Module Configuration, Pester
 
+# TODO: Automatic step discovery
+# TODO: Ability to update everything else in this script.
+
 using namespace System.IO
 using namespace System.Collections.Generic
 using namespace System.Diagnostics
@@ -17,10 +20,11 @@ param(
     [ValidateSet('Build', 'Minor', 'Major')]
     [String]$ReleaseType = 'Build',
 
-    # Return the BuildInfo object as the last item.
+    # Return each the results of each build step as an object.
     [Parameter(ParameterSetName = 'RunBuild')]
     [Switch]$PassThru,
 
+    # Return the BuildInfo object but do not run the build.
     [Parameter(ParameterSetName = 'GetInfo')]
     [Switch]$GetBuildInfo,
 
@@ -68,13 +72,10 @@ class BuildInfo {
 
     # The project folder.
     [DirectoryInfo] $Project = ((git rev-parse --show-toplevel) -replace '/', ([Path]::DirectorySeparatorChar))
-
-    # The base directory for the build target.
-    [DirectoryInfo] $Base
-
+    
     # The output directory.
     [DirectoryInfo] $Output
-
+    
     # The generated module base path.
     [DirectoryInfo] $ModuleBase
 
@@ -94,7 +95,7 @@ class BuildInfo {
     [Boolean] $StepsUpdated = $false
 
     # Whether or not the script can update itself. Get only.
-    hidden [Boolean] $CanUpdate = $true
+    hidden [Boolean] $CanUpdate = $false
 
     # Whether or not the script should update itself. Get or Set.
     hidden [Boolean] $ShouldUpdate = $true
@@ -135,15 +136,15 @@ class BuildInfo {
             if ($this.GetSteps().Count -gt 0 -and -not $this.GetStep($StepName)) {
                 # Re-order things into the same order as GetSteps(BuildType).
                 
-                $startOffset = $this.GetSteps()[0].StartOffset
+                $startOffset = $this.cachedSteps[0].StartOffset
                 $scriptContent = $scriptContent.Remove(
                     $startOffset,
-                    $this.GetSteps()[-1].EndOffset - $startOffset
+                    $this.cachedSteps[-1].EndOffset - $startOffset
                 )
 
-                $steps = $this.GetSteps() + @(Get-BuildStep $StepName) |
+                $steps = $this.cachedSteps.ToArray() + @(Get-BuildStep $StepName) |
                     Sort-Object { $_.BuildStep.BuildType }, { $_.BuildStep.Order }, Name
-            } elseif ($this.GetSteps().Count -eq 0) {
+            } elseif ($this.cachedSteps.Count -eq 0) {
                 $startOffset = $scriptContent.LastIndexOf('# Steps') + ("# Steps`r`n".Length)
                 $scriptContent = $scriptContent.Insert($startOffset, "`r`n`r`n")
                 $startOffset += 2
@@ -272,15 +273,16 @@ class BuildInfo {
         }
     }
 
+
     hidden [Void] SetPaths() {
         if ((Split-Path $this.Project -Leaf) -eq $this.ModuleName) {
-            $this.Base = $this.Project
+            $base = $this.Project
         } else {
-            $this.Base = Join-path $this.Project $this.ModuleName
+            $base = Join-path $this.Project $this.ModuleName
         }
 
-        $this.Output = Join-Path $this.Base 'output'
-        $this.ModuleBase = Join-Path $this.Base $this.Version
+        $this.Output = Join-Path $base 'output'
+        $this.ModuleBase = Join-Path $base $this.Version
         $this.RootModule = New-Object FileInfo(Join-Path $this.ModuleBase ('{0}.psm1' -f $this.ModuleName))
         $this.Manifest = New-Object FileInfo(Join-Path $this.ModuleBase ('{0}.psd1' -f $this.ModuleName))
     }
@@ -395,9 +397,7 @@ function Invoke-Step {
     
     param(
         [Parameter(ValueFromPipeline = $true)]
-        $StepName,
-
-        [Switch]$Quiet
+        $StepName
     )
 
     begin {
@@ -449,7 +449,160 @@ function Invoke-Step {
     }
 }
 
+function Write-Message {
+    param(
+        [String]$Object,
+
+        [ConsoleColor]$ForegroundColor,
+
+        [Switch]$Quiet
+    )
+
+    $null = $psboundparameters.Remove('Quiet')
+    if (-not $Quiet) {
+        Write-Host
+        Write-Host @psboundparameters
+        Write-Host
+    }
+}
+
 # Steps
+
+function Merge {
+    # .SYNOPSIS
+    #   Merge source files into a module.
+    # .DESCRIPTION
+    #   Merge the files which represent a module in development into a single psm1 file.
+    #
+    #   If an InitializeModule script (containing an InitializeModule function) is present it will be called at the end of the .psm1.
+    #
+    #   "using" statements are merged and added to the top of the root module.
+    # .NOTES
+    #   Author: Chris Dent
+    #
+    #   Change log:
+    #     01/02/2017 - Chris Dent - Added help.
+    
+    [BuildStep('Build')]
+    param( )
+
+    $mergeItems = 'enumerations', 'classes', 'private', 'public', 'InitializeModule.ps1'
+
+    Get-ChildItem 'source' -Exclude $mergeItems |
+        Copy-Item -Destination $buildInfo.ModuleBase -Recurse
+
+    $fileStream = [System.IO.File]::Create($buildInfo.RootModule)
+    $writer = New-Object System.IO.StreamWriter($fileStream)
+
+    $usingStatements = New-Object System.Collections.Generic.List[String]
+
+    foreach ($item in $mergeItems) {
+        $path = Join-Path 'source' $item
+
+        Get-ChildItem $path -Filter *.ps1 -File -Recurse |
+            Where-Object { $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
+            ForEach-Object {
+                $functionDefinition = Get-Content $_.FullName | ForEach-Object {
+                    if ($_ -match '^using') {
+                        $usingStatements.Add($_)
+                    } else {
+                        $_.TrimEnd()
+                    }
+                } | Out-String
+                $writer.WriteLine($functionDefinition.Trim())
+                $writer.WriteLine()
+            }
+    }
+
+    if (Test-Path 'source\InitializeModule.ps1') {
+        $writer.WriteLine('InitializeModule')
+    }
+
+    $writer.Close()
+
+    $rootModule = (Get-Content $buildInfo.RootModule -Raw).Trim()
+    if ($usingStatements.Count -gt 0) {
+        # Add "using" statements to be start of the psm1
+        $rootModule = $rootModule.Insert(0, "`r`n`r`n").Insert(
+            0,
+            (($usingStatements.ToArray() | Sort-Object | Get-Unique) -join "`r`n")
+        )
+    }
+    Set-Content -Path $buildInfo.RootModule -Value $rootModule -NoNewline
+}
+
+function Clean {
+    # .SYNOPSIS
+    #   Clean the last build of this module from the build directory.
+    # .NOTES
+    #   Author: Chris Dent
+    #
+    #   Change log:
+    #     01/02/2017 - Chris Dent - Added help.
+
+    [BuildStep('Build', Order = 0)]
+    param( )
+
+    if (Get-Module $buildInfo.ModuleName) {
+        Remove-Module $buildInfo.ModuleName
+    }
+
+    Get-ChildItem -Directory |
+        Where-Object { [Version]::TryParse($_.Name, [Ref]$null) } |
+        Remove-Item -Recurse -Force
+    if (Test-Path $buildInfo.Output) {
+        Remove-Item $buildInfo.Output -Recurse -Force
+    }
+
+    $null = New-Item $buildInfo.Output -ItemType Directory -Force
+    $null = New-Item $buildInfo.ModuleBase -ItemType Directory -Force
+}
+
+function TestSyntax {
+    # .SYNOPSIS
+    #   Test for syntax errors in .ps1 files.
+    # .DESCRIPTION
+    #   Test for syntax errors in InitializeModule and all .ps1 files (recursively) beneath:
+    #
+    #     * pwd\source\public
+    #     * pwd\source\private
+    #
+    # .NOTES
+    #   Author: Chris Dent
+    #
+    #   Change log:
+    #     01/02/2017 - Chris Dent - Added help.
+
+    [BuildStep('Build', Order = 1)]
+    param( )
+
+    $hasSyntaxErrors = $false
+    foreach ($path in 'public', 'private', 'InitializeModule.ps1') {
+        $path = Join-Path 'source' $path
+        if (Test-Path $path) {
+            Get-ChildItem $path -Filter *.ps1 -File -Recurse |
+                Where-Object { $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
+                ForEach-Object {
+                    $tokens = $null
+                    [System.Management.Automation.Language.ParseError[]]$parseErrors = @()
+                    $ast = [System.Management.Automation.Language.Parser]::ParseInput(
+                        (Get-Content $_.FullName -Raw),
+                        $_.FullName,
+                        [Ref]$tokens,
+                        [Ref]$parseErrors
+                    )
+                    if ($parseErrors.Count -gt 0) {
+                        $parseErrors | Write-Error
+
+                        $hasSyntaxErrors = $true
+                    }
+                }
+        }
+    }
+    if ($hasSyntaxErrors) {
+        throw 'TestSyntax failed'
+    }
+}
 
 function UpdateMetadata {
     # .SYNOPSIS
@@ -530,139 +683,6 @@ function UpdateMetadata {
     Set-Content "source\$($buildInfo.Manifest.Name)" -Value $content
 }
 
-function Clean {
-    # .SYNOPSIS
-    #   Clean the last build of this module from the build directory.
-    # .NOTES
-    #   Author: Chris Dent
-    #
-    #   Change log:
-    #     01/02/2017 - Chris Dent - Added help.
-
-    [BuildStep('Build', Order = 0)]
-    param( )
-
-    if (Get-Module $buildInfo.ModuleName) {
-        Remove-Module $buildInfo.ModuleName
-    }
-
-    Get-ChildItem -Directory |
-        Where-Object { [Version]::TryParse($_.Name, [Ref]$null) } |
-        Remove-Item -Recurse -Force
-    if (Test-Path $buildInfo.Output) {
-        Remove-Item $buildInfo.Output -Recurse -Force
-    }
-
-    $null = New-Item $buildInfo.Output -ItemType Directory -Force
-    $null = New-Item $buildInfo.ModuleBase -ItemType Directory -Force
-}
-
-function TestSyntax {
-    # .SYNOPSIS
-    #   Test for syntax errors in .ps1 files.
-    # .DESCRIPTION
-    #   Test for syntax errors in InitializeModule and all .ps1 files (recursively) beneath:
-    #
-    #     * pwd\source\public
-    #     * pwd\source\private
-    #
-    # .NOTES
-    #   Author: Chris Dent
-    #
-    #   Change log:
-    #     01/02/2017 - Chris Dent - Added help.
-
-    [BuildStep('Build', Order = 1)]
-    param( )
-
-    $hasSyntaxErrors = $false
-    foreach ($path in 'public', 'private', 'InitializeModule.ps1') {
-        $path = Join-Path 'source' $path
-        if (Test-Path $path) {
-            Get-ChildItem $path -Filter *.ps1 -File -Recurse |
-                Where-Object { $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
-                ForEach-Object {
-                    $tokens = $null
-                    [System.Management.Automation.Language.ParseError[]]$parseErrors = @()
-                    $ast = [System.Management.Automation.Language.Parser]::ParseInput(
-                        (Get-Content $_.FullName -Raw),
-                        $_.FullName,
-                        [Ref]$tokens,
-                        [Ref]$parseErrors
-                    )
-                    if ($parseErrors.Count -gt 0) {
-                        $parseErrors | Write-Error
-
-                        $hasSyntaxErrors = $true
-                    }
-                }
-        }
-    }
-    if ($hasSyntaxErrors) {
-        throw 'TestSyntax failed'
-    }
-}
-
-function Merge {
-    # .SYNOPSIS
-    #   Merge source files into a module.
-    # .DESCRIPTION
-    #   Merge the files which represent a module in development into a single psm1 file.
-    #
-    #   If an InitializeModule script (containing an InitializeModule function) is present it will be called at the end of the .psm1.
-    # .NOTES
-    #   Author: Chris Dent
-    #
-    #   Change log:
-    #     01/02/2017 - Chris Dent - Added help.
-    
-    [BuildStep('Build')]
-    param( )
-
-    $mergeItems = 'enumerations', 'classes', 'private', 'public', 'InitializeModule.ps1'
-
-    Get-ChildItem 'source' -Exclude $mergeItems |
-        Copy-Item -Destination $buildInfo.ModuleBase -Recurse
-
-    $fileStream = [System.IO.File]::Create($buildInfo.RootModule)
-    $writer = New-Object System.IO.StreamWriter($fileStream)
-
-    $usingStatements = New-Object System.Collections.Generic.List[String]
-
-    foreach ($item in $mergeItems) {
-        $path = Join-Path 'source' $item
-
-        Get-ChildItem $path -Filter *.ps1 -File -Recurse |
-            Where-Object { $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
-            ForEach-Object {
-                $functionDefinition = Get-Content $_.FullName | ForEach-Object {
-                    if ($_ -match '^using') {
-                        $usingStatements.Add($_)
-                    } else {
-                        $_.TrimEnd()
-                    }
-                } | Out-String
-                $writer.WriteLine($functionDefinition.Trim())
-                $writer.WriteLine()
-            }
-    }
-
-    if (Test-Path 'source\InitializeModule.ps1') {
-        $writer.WriteLine('InitializeModule')
-    }
-
-    $writer.Close()
-
-    $rootModule = (Get-Content $buildInfo.RootModule -Raw).Trim()
-    if ($usingStatements.Count -gt 0) {
-        $rootModule = $rootModule.Insert(0, "`r`n`r`n").Insert(
-            0,
-            (($usingStatements.ToArray() | Sort-Object | Get-Unique) -join "`r`n")
-        )
-    }
-    Set-Content -Path $buildInfo.RootModule -Value $rootModule -NoNewline
-}
-
 # Run the build
 
 try {
@@ -680,14 +700,10 @@ try {
                 $quietParam.Quiet = $true
             }
 
-            if (-not $Quiet) {
-                Write-Host
-                Write-Host ('Building {0} ({1})' -f $buildInfo.ModuleName, $buildInfo.Version)
-                Write-Host
-            }
+            Write-Message ('Building {0} ({1})' -f $buildInfo.ModuleName, $buildInfo.Version) @quietParam
             
             foreach ($step in $buildInfo.GetSteps($BuildType)) {
-                $stepInfo = Invoke-Step $step.Name @quietParam
+                $stepInfo = Invoke-Step $step.Name
 
                 if ($PassThru) {
                     $stepInfo
@@ -698,21 +714,13 @@ try {
                 }
             }
 
-            if (-not $Quiet) {
-                Write-Host
-                Write-Host "Build succeeded!" -ForegroundColor Green
-                Write-Host
-            }
+            Write-Message "Build succeeded!" -ForegroundColor Green @quietParam
 
             $lastexitcode = 0
         }
     }
 } catch {
-    if (-not $Quiet) {
-        Write-Host
-        Write-Host 'Build Failed!' -ForegroundColor Red
-        Write-Host
-    }
+    Write-Message 'Build Failed!' -ForegroundColor Red @quietParam
 
     $lastexitcode = 1
 
