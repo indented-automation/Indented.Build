@@ -16,6 +16,7 @@ function Add-BuildStep {
     [CmdletBinding()]
     param(
         # The path to a build script.
+        [Parameter(Madatory = $true)]
         [ValidateScript( { Test-Path $_ -PathType Leaf } )]
         [String]$Path,
         
