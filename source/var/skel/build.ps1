@@ -13,10 +13,12 @@ using namespace System.Reflection
 [CmdletBinding(DefaultParameterSetName = 'RunBuild')]
 param(
     # The build type. Cannot use enum yet, it's not declared until this has executed.
+    [Parameter(Position = 1)]
     [ValidateSet('Build', 'BuildTest', 'FunctionalTest', 'Release')]
     [String]$BuildType = 'Build',
 
     # The release type.
+    [Parameter(Position = 2)]
     [ValidateSet('Build', 'Minor', 'Major')]
     [String]$ReleaseType = 'Build',
 
@@ -29,7 +31,10 @@ param(
     [Switch]$GetBuildInfo,
 
     # Suppress messages written by Write-Host.
-    [Switch]$Quiet
+    [Switch]$Quiet,
+
+    # If IgnoreBuildChain is set the build script will execute steps declared in the BuildType. The default behaviour is to execute steps in the BuildType and all steps in earlier phases.
+    [Switch]$IgnoreBuildChain
 )
 
 enum BuildType {
@@ -93,6 +98,9 @@ class BuildInfo {
 
     # Whether or not this script has self-updated. Get only.
     [Boolean] $StepsUpdated = $false
+
+    # Execute steps and predecessor steps, or steps in this BuildType only.
+    [Boolean] $IgnoreBuildChain = $false
 
     # Whether or not the script can update itself. Get only.
     hidden [Boolean] $CanUpdate = $false
@@ -170,7 +178,10 @@ class BuildInfo {
     # then the step name.
     [PSObject[]] GetSteps([String]$BuildType) {
         return $this.GetSteps() |
-            Where-Object { $_.BuildStep.BuildType -le [BuildType]$this.BuildType } |
+            Where-Object { 
+                ($this.IgnoreBuildChain -and $_.BuildStep.BuildType -eq [BuildType]$this.BuildType) -or
+                (-not $this.IgnoreBuildChain -and $_.BuildStep.BuildType -le [BuildType]$this.BuildType)
+            } |
             Sort-Object { $_.BuildStep.BuildType }, { $_.BuildStep.Order }, Name
     }
 
@@ -474,6 +485,9 @@ try {
     Push-Location $psscriptroot
 
     $buildInfo = New-Object BuildInfo($BuildType, $ReleaseType)
+    if ($IgnoreBuildChain) {
+        $buildInfo.IgnoreBuildChain = $true
+    }
     if ($buildInfo.StepsUpdated) {
         & $pscommandpath @psboundparameters
     } else {
