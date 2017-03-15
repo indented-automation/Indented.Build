@@ -1,8 +1,5 @@
 #Requires -Module Configuration, Pester
 
-# TODO: Automatic step discovery
-# TODO: Ability to update everything else in this script.
-
 using namespace System.IO
 using namespace System.Collections.Generic
 using namespace System.Diagnostics
@@ -145,6 +142,7 @@ class BuildInfo {
                 # Re-order things into the same order as GetSteps(BuildType).
                 
                 $startOffset = $this.cachedSteps[0].StartOffset
+
                 $scriptContent = $scriptContent.Remove(
                     $startOffset,
                     $this.cachedSteps[-1].EndOffset - $startOffset
@@ -154,6 +152,7 @@ class BuildInfo {
                     Sort-Object { $_.BuildStep.BuildType }, { $_.BuildStep.Order }, Name
             } elseif ($this.cachedSteps.Count -eq 0) {
                 $startOffset = $scriptContent.LastIndexOf('# Steps') + ("# Steps`r`n".Length)
+
                 $scriptContent = $scriptContent.Insert($startOffset, "`r`n`r`n")
                 $startOffset += 2
 
@@ -174,8 +173,7 @@ class BuildInfo {
         return $this.GetSteps() | Where-Object Name -eq $StepName
     }
 
-    # Return an ordered list of steps based on the BuildInfo BuildType attribute
-    # then the step name.
+    # Return an ordered list of steps based on the BuildInfo BuildType attribute then the step name.
     [PSObject[]] GetSteps([String]$BuildType) {
         return $this.GetSteps() |
             Where-Object { 
@@ -204,8 +202,6 @@ class BuildInfo {
                 },
                 $false
             ) | ForEach-Object {
-                # There's a scope problem here. BuildStep needs to be available or it won't parse.
-                # Might be able to do something about this if the executionContext is tweaked in Get-FunctionInfo.
                 $this.cachedSteps.Add((
                     [PSCustomObject]@{
                         Name        = $_.Name
@@ -230,13 +226,8 @@ class BuildInfo {
 
                 if ($step.Definition -ne $newStep.Definition) {
                     $scriptContent = Get-Content $pscommandpath -Raw
-                    $scriptContent = $scriptContent.Remove(
-                                        $step.StartOffset,
-                                        $step.Length
-                                    ).Insert(
-                                        $step.StartOffset,
-                                        $newStep.Definition
-                                    )
+                    $scriptContent = $scriptContent.Remove($step.StartOffset, $step.Length).
+                                                    Insert($step.StartOffset, $newStep.Definition)
                     Set-Content -Path $pscommandpath -Value $scriptContent -NoNewline
 
                     $this.StepsUpdated = $true
@@ -251,23 +242,30 @@ class BuildInfo {
     # Private methods
 
     hidden [Version] GetBuildVersion() {
-        # Generate version numbers
-        $sourceManifest = [Path]::Combine($this.Build, 'source', ('{0}.psd1' -f $this.ModuleName))
-        if (Test-Path $sourceManifest) {
-            [Version]$currentVersion = Get-Metadata -Path $sourceManifest -PropertyName ModuleVersion
-            $buildVersion = switch ($this.ReleaseType) {
-                'Build' {
-                    $buildNumber = $currentVersion.Build
-                    if ($currentVersion.Build -eq -1) {
-                        $buildNumber = 0
-                    }
-                    New-Object Version($currentVersion.Major, $currentVersion.Minor, ($buildNumber + 1))
-                }
-                'Major' { New-Object Version(($currentVersion.Major + 1), 0) }
-                'Minor' { New-Object Version($currentVersion.Major, ($currentVersion.Minor + 1)) }
-                default { [Version]'0.0.1' }
+        # Prefer to use version numbers from git.
+        $currentVersion = (git describe --tags 2>$null) -replace '^v'
+        if (-not $currentVersion -or -not [Version]::TryParse($currentVersion, [Ref]$null)) {
+            # Fall back to version numbers in the manifest.
+            $sourceManifest = [Path]::Combine($this.Build, 'source', ('{0}.psd1' -f $this.ModuleName))
+            if (Test-Path $sourceManifest) {
+                $currentVersion = Get-Metadata -Path $sourceManifest -PropertyName ModuleVersion
             }
-            return $buildVersion
+        }
+        if ($currentVersion) {
+            $newVersion = [Version]$currentVersion | Select-Object * | Add-Member ToString -MemberType ScriptMethod -PassThru -Force -Value {
+                if ($this.Build -eq -1) {
+                    $this.Build = 0
+                }
+                return '{0}.{1}.{2}' -f $this.Major, $this.Minor, $this.Build
+            }
+
+            switch ($this.ReleaseType) {
+                'Major' { $newVersion.Major++; $newVersion.Minor = 0; $newVersion.Build = 0 }
+                'Minor' { $newVersion.Minor++; $newVersion.Build = 0 }
+                'Build' { $newVersion.Build++ }
+            }
+
+            return [Version]$newVersion.ToString()
         } else {
             return [Version]'0.0.1'
         }
@@ -283,7 +281,6 @@ class BuildInfo {
             }
         }
     }
-
 
     hidden [Void] SetPaths() {
         if ((Split-Path $this.Project -Leaf) -eq $this.ModuleName) {
@@ -479,69 +476,6 @@ function Write-Message {
 
 # Steps
 
-function Merge {
-    # .SYNOPSIS
-    #   Merge source files into a module.
-    # .DESCRIPTION
-    #   Merge the files which represent a module in development into a single psm1 file.
-    #
-    #   If an InitializeModule script (containing an InitializeModule function) is present it will be called at the end of the .psm1.
-    #
-    #   "using" statements are merged and added to the top of the root module.
-    # .NOTES
-    #   Author: Chris Dent
-    #
-    #   Change log:
-    #     01/02/2017 - Chris Dent - Added help.
-    
-    [BuildStep('Build')]
-    param( )
-
-    $mergeItems = 'enumerations', 'classes', 'private', 'public', 'InitializeModule.ps1'
-
-    Get-ChildItem 'source' -Exclude $mergeItems |
-        Copy-Item -Destination $buildInfo.ModuleBase -Recurse
-
-    $fileStream = [System.IO.File]::Create($buildInfo.RootModule)
-    $writer = New-Object System.IO.StreamWriter($fileStream)
-
-    $usingStatements = New-Object System.Collections.Generic.List[String]
-
-    foreach ($item in $mergeItems) {
-        $path = Join-Path 'source' $item
-
-        Get-ChildItem $path -Filter *.ps1 -File -Recurse |
-            Where-Object { $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
-            ForEach-Object {
-                $functionDefinition = Get-Content $_.FullName | ForEach-Object {
-                    if ($_ -match '^using') {
-                        $usingStatements.Add($_)
-                    } else {
-                        $_.TrimEnd()
-                    }
-                } | Out-String
-                $writer.WriteLine($functionDefinition.Trim())
-                $writer.WriteLine()
-            }
-    }
-
-    if (Test-Path 'source\InitializeModule.ps1') {
-        $writer.WriteLine('InitializeModule')
-    }
-
-    $writer.Close()
-
-    $rootModule = (Get-Content $buildInfo.RootModule -Raw).Trim()
-    if ($usingStatements.Count -gt 0) {
-        # Add "using" statements to be start of the psm1
-        $rootModule = $rootModule.Insert(0, "`r`n`r`n").Insert(
-            0,
-            (($usingStatements.ToArray() | Sort-Object | Get-Unique) -join "`r`n")
-        )
-    }
-    Set-Content -Path $buildInfo.RootModule -Value $rootModule -NoNewline
-}
-
 function Clean {
     # .SYNOPSIS
     #   Clean the last build of this module from the build directory.
@@ -666,6 +600,69 @@ function TestSyntax {
     }
 }
 
+function Merge {
+    # .SYNOPSIS
+    #   Merge source files into a module.
+    # .DESCRIPTION
+    #   Merge the files which represent a module in development into a single psm1 file.
+    #
+    #   If an InitializeModule script (containing an InitializeModule function) is present it will be called at the end of the .psm1.
+    #
+    #   "using" statements are merged and added to the top of the root module.
+    # .NOTES
+    #   Author: Chris Dent
+    #
+    #   Change log:
+    #     01/02/2017 - Chris Dent - Added help.
+    
+    [BuildStep('Build')]
+    param( )
+
+    $mergeItems = 'enumerations', 'classes', 'private', 'public', 'InitializeModule.ps1'
+
+    Get-ChildItem 'source' -Exclude $mergeItems |
+        Copy-Item -Destination $buildInfo.ModuleBase -Recurse
+
+    $fileStream = [System.IO.File]::Create($buildInfo.RootModule)
+    $writer = New-Object System.IO.StreamWriter($fileStream)
+
+    $usingStatements = New-Object System.Collections.Generic.List[String]
+
+    foreach ($item in $mergeItems) {
+        $path = Join-Path 'source' $item
+
+        Get-ChildItem $path -Filter *.ps1 -File -Recurse |
+            Where-Object { $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
+            ForEach-Object {
+                $functionDefinition = Get-Content $_.FullName | ForEach-Object {
+                    if ($_ -match '^using') {
+                        $usingStatements.Add($_)
+                    } else {
+                        $_.TrimEnd()
+                    }
+                } | Out-String
+                $writer.WriteLine($functionDefinition.Trim())
+                $writer.WriteLine()
+            }
+    }
+
+    if (Test-Path 'source\InitializeModule.ps1') {
+        $writer.WriteLine('InitializeModule')
+    }
+
+    $writer.Close()
+
+    $rootModule = (Get-Content $buildInfo.RootModule -Raw).Trim()
+    if ($usingStatements.Count -gt 0) {
+        # Add "using" statements to be start of the psm1
+        $rootModule = $rootModule.Insert(0, "`r`n`r`n").Insert(
+            0,
+            (($usingStatements.ToArray() | Sort-Object | Get-Unique) -join "`r`n")
+        )
+    }
+    Set-Content -Path $buildInfo.RootModule -Value $rootModule -NoNewline
+}
+
 function UpdateMetadata {
     # .SYNOPSIS
     #   Update the module manifest.
@@ -691,7 +688,6 @@ function UpdateMetadata {
     # Version
     Update-Metadata $buildInfo.Manifest -PropertyName ModuleVersion -Value $buildInfo.Version
     Update-Metadata (Join-Path 'source' $buildInfo.Manifest.Name) -PropertyName ModuleVersion -Value $buildInfo.Version
-
 
     # RootModule
     if (Enable-Metadata $buildInfo.Manifest -PropertyName RootModule) {
@@ -745,6 +741,58 @@ function UpdateMetadata {
     Set-Content "source\$($buildInfo.Manifest.Name)" -Value $content
 }
 
+function ImportTest {
+    # Attempt to import the module, abort the build if the module does not import.
+    # If the manifest declares a minimum version use PowerShell -version <version> to execute a best-effort test against that version
+
+    [BuildStep('BuildTest', Order = 0)]
+    param( )
+
+    $argumentList = @()
+    $psVersion =  Get-Metadata $buildInfo.Manifest -PropertyName PowerShellVersion -ErrorAction SilentlyContinue 
+    if ($null -ne $psVersion -and ([Version]$psVersion).Major -lt $psversionTable.PSVersion.Major) {
+        $argumentList += '-Version', $psVersion
+    }
+    $argumentList += '-NoProfile', '-Command', ('
+        try {{
+            Import-Module "{0}" -ErrorAction Stop
+        }} catch {{
+            $_.Exception.Message
+            exit 1
+        }}
+        exit 0
+    ' -f $buildInfo.Manifest)
+
+    & powershell.exe $argumentList
+}
+
+function UnitTest {
+    # Execute unit tests
+    # Note: These tests are being executed against the Packaged module, not the code in the repository.
+
+    [BuildStep('BuildTest')]
+    param( )
+
+    if (-not (Test-Path 'tests\unit\*')) {
+        throw 'The project must have tests!'    
+    }
+
+    Import-Module $buildInfo.Manifest -ErrorAction Stop
+    $pester = Invoke-Pester -Script 'tests\unit' -CodeCoverage $buildInfo.RootModule -PassThru
+
+    if ($pester.FailedCount -gt 0) {
+        throw 'Unit tests failed'
+    }
+
+    [Double]$codeCoverage = $pester.CodeCoverage.NumberOfCommandsExecuted / $pester.CodeCoverage.NumberOfCommandsAnalyzed
+    $pester.CodeCoverage.MissedCommands | Export-Csv (Join-Path $buildInfo.Output 'CodeCoverage.csv') -NoTypeInformation
+
+    if ($codecoverage -lt $buildInfo.CodeCoverageThreshold) {
+        $message = 'Code coverage ({0:P}) is below threshold {1:P}.' -f $codeCoverage, $buildInfo.CodeCoverageThreshold 
+        throw $message
+    }
+}
+
 # Run the build
 
 try {
@@ -785,7 +833,9 @@ try {
         }
     }
 } catch {
-    Write-Message 'Build Failed!' -ForegroundColor Red @quietParam
+    if (-not $GetBuildInfo) {
+        Write-Message 'Build Failed!' -ForegroundColor Red @quietParam
+    }
 
     $lastexitcode = 1
 

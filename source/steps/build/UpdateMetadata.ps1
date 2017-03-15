@@ -24,7 +24,6 @@ function UpdateMetadata {
     Update-Metadata $buildInfo.Manifest -PropertyName ModuleVersion -Value $buildInfo.Version
     Update-Metadata (Join-Path 'source' $buildInfo.Manifest.Name) -PropertyName ModuleVersion -Value $buildInfo.Version
 
-
     # RootModule
     if (Enable-Metadata $buildInfo.Manifest -PropertyName RootModule) {
         Update-Metadata $buildInfo.Manifest -PropertyName RootModule -Value $buildInfo.RootModule.Name

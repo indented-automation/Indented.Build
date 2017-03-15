@@ -25,8 +25,9 @@ function Add-BuildStep {
     )
 
     if ((Get-Command $Path).Parameters.ContainsKey('GetBuildInfo')) {
+        $buildInfo = & $Path -GetBuildInfo
         foreach ($name in $StepName) {
-            (& $Path -GetBuildInfo).AddStep($name)
+            $buildInfo.AddStep($name)
         }
     } else {
         throw 'Incompatible build script'

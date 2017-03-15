@@ -6,7 +6,7 @@ function ImportTest {
     param( )
 
     $argumentList = @()
-    $psVersion =  Get-Metadata (Join-Path $buildInfo.BuildPath $buildInfo.Manifest) -PropertyName PowerShellVersion -ErrorAction SilentlyContinue 
+    $psVersion =  Get-Metadata $buildInfo.Manifest -PropertyName PowerShellVersion -ErrorAction SilentlyContinue 
     if ($null -ne $psVersion -and ([Version]$psVersion).Major -lt $psversionTable.PSVersion.Major) {
         $argumentList += '-Version', $psVersion
     }

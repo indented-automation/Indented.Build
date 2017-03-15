@@ -1,8 +1,5 @@
 #Requires -Module Configuration, Pester
 
-# TODO: Automatic step discovery
-# TODO: Ability to update everything else in this script.
-
 using namespace System.IO
 using namespace System.Collections.Generic
 using namespace System.Diagnostics
@@ -230,13 +227,8 @@ class BuildInfo {
 
                 if ($step.Definition -ne $newStep.Definition) {
                     $scriptContent = Get-Content $pscommandpath -Raw
-                    $scriptContent = $scriptContent.Remove(
-                                        $step.StartOffset,
-                                        $step.Length
-                                    ).Insert(
-                                        $step.StartOffset,
-                                        $newStep.Definition
-                                    )
+                    $scriptContent = $scriptContent.Remove($step.StartOffset, $step.Length).
+                                                    Insert($step.StartOffset, $newStep.Definition)
                     Set-Content -Path $pscommandpath -Value $scriptContent -NoNewline
 
                     $this.StepsUpdated = $true
@@ -251,23 +243,30 @@ class BuildInfo {
     # Private methods
 
     hidden [Version] GetBuildVersion() {
-        # Generate version numbers
-        $sourceManifest = [Path]::Combine($this.Build, 'source', ('{0}.psd1' -f $this.ModuleName))
-        if (Test-Path $sourceManifest) {
-            [Version]$currentVersion = Get-Metadata -Path $sourceManifest -PropertyName ModuleVersion
-            $buildVersion = switch ($this.ReleaseType) {
-                'Build' {
-                    $buildNumber = $currentVersion.Build
-                    if ($currentVersion.Build -eq -1) {
-                        $buildNumber = 0
-                    }
-                    New-Object Version($currentVersion.Major, $currentVersion.Minor, ($buildNumber + 1))
-                }
-                'Major' { New-Object Version(($currentVersion.Major + 1), 0) }
-                'Minor' { New-Object Version($currentVersion.Major, ($currentVersion.Minor + 1)) }
-                default { [Version]'0.0.1' }
+        # Prefer to use version numbers from git.
+        $currentVersion = (git describe --tags 2>$null) -replace '^v'
+        if (-not $currentVersion -or -not [Version]::TryParse($currentVersion, [Ref]$null)) {
+            # Fall back to version numbers in the manifest.
+            $sourceManifest = [Path]::Combine($this.Build, 'source', ('{0}.psd1' -f $this.ModuleName))
+            if (Test-Path $sourceManifest) {
+                $currentVersion = Get-Metadata -Path $sourceManifest -PropertyName ModuleVersion
             }
-            return $buildVersion
+        }
+        if ($currentVersion) {
+            $newVersion = [Version]$currentVersion | Select-Object * | Add-Member ToString -MemberType ScriptMethod -PassThru -Force -Value {
+                if ($this.Build -eq -1) {
+                    $this.Build = 0
+                }
+                return '{0}.{1}.{2}' -f $this.Major, $this.Minor, $this.Build
+            }
+
+            switch ($this.ReleaseType) {
+                'Major' { $newVersion.Major++; $newVersion.Minor = 0; $newVersion.Build = 0 }
+                'Minor' { $newVersion.Minor++; $newVersion.Build = 0 }
+                'Build' { $newVersion.Build++ }
+            }
+
+            return [Version]$newVersion.ToString()
         } else {
             return [Version]'0.0.1'
         }

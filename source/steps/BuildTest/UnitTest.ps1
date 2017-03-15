@@ -22,5 +22,5 @@ function UnitTest {
     if ($codecoverage -lt $buildInfo.CodeCoverageThreshold) {
         $message = 'Code coverage ({0:P}) is below threshold {1:P}.' -f $codeCoverage, $buildInfo.CodeCoverageThreshold 
         throw $message
-    } 
+    }
 }
