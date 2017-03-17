@@ -84,7 +84,6 @@ function TestSyntax {
                             )
 
                             Write-Error -ErrorRecord $errorRecord
-
                         }
                     }
                 }
