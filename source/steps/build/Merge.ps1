@@ -1,62 +1,44 @@
-function Merge {
-    # .SYNOPSIS
-    #   Merge source files into a module.
-    # .DESCRIPTION
-    #   Merge the files which represent a module in development into a single psm1 file.
-    #
-    #   If an InitializeModule script (containing an InitializeModule function) is present it will be called at the end of the .psm1.
-    #
-    #   "using" statements are merged and added to the top of the root module.
-    # .NOTES
-    #   Author: Chris Dent
-    #
-    #   Change log:
-    #     01/02/2017 - Chris Dent - Added help.
-    
-    [BuildStep('Build')]
-    param( )
+BuildTask Merge -Stage Build -Properties @{
+    Implementation = {
+        $mergeItems = 'enumeration', 'class', 'private', 'public', 'InitializeModule.ps1'
 
-    $mergeItems = 'enumerations', 'classes', 'private', 'public', 'InitializeModule.ps1'
+        $fileStream = [System.IO.File]::Create($buildInfo.RootModule)
+        $writer = New-Object System.IO.StreamWriter($fileStream)
 
-    Get-ChildItem 'source' -Exclude $mergeItems |
-        Copy-Item -Destination $buildInfo.ModuleBase -Recurse
+        $usingStatements = New-Object System.Collections.Generic.List[String]
 
-    $fileStream = [System.IO.File]::Create($buildInfo.RootModule)
-    $writer = New-Object System.IO.StreamWriter($fileStream)
+        foreach ($item in $mergeItems) {
+            $path = Join-Path 'source' $item
 
-    $usingStatements = New-Object System.Collections.Generic.List[String]
+            Get-ChildItem $path -Filter *.ps1 -File -Recurse |
+                Where-Object { $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
+                ForEach-Object {
+                    $functionDefinition = Get-Content $_.FullName | ForEach-Object {
+                        if ($_ -match '^using') {
+                            $usingStatements.Add($_)
+                        } else {
+                            $_.TrimEnd()
+                        }
+                    } | Out-String
+                    $writer.WriteLine($functionDefinition.Trim())
+                    $writer.WriteLine()
+                }
+        }
 
-    foreach ($item in $mergeItems) {
-        $path = Join-Path 'source' $item
+        if (Test-Path 'source\InitializeModule.ps1') {
+            $writer.WriteLine('InitializeModule')
+        }
 
-        Get-ChildItem $path -Filter *.ps1 -File -Recurse |
-            Where-Object { $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
-            ForEach-Object {
-                $functionDefinition = Get-Content $_.FullName | ForEach-Object {
-                    if ($_ -match '^using') {
-                        $usingStatements.Add($_)
-                    } else {
-                        $_.TrimEnd()
-                    }
-                } | Out-String
-                $writer.WriteLine($functionDefinition.Trim())
-                $writer.WriteLine()
-            }
+        $writer.Close()
+
+        $rootModule = (Get-Content $buildInfo.RootModule -Raw).Trim()
+        if ($usingStatements.Count -gt 0) {
+            # Add "using" statements to be start of the psm1
+            $rootModule = $rootModule.Insert(0, "`n`n").Insert(
+                0,
+                (($usingStatements.ToArray() | Sort-Object | Get-Unique) -join "`n")
+            )
+        }
+        Set-Content -Path $buildInfo.RootModule -Value $rootModule -NoNewline
     }
-
-    if (Test-Path 'source\InitializeModule.ps1') {
-        $writer.WriteLine('InitializeModule')
-    }
-
-    $writer.Close()
-
-    $rootModule = (Get-Content $buildInfo.RootModule -Raw).Trim()
-    if ($usingStatements.Count -gt 0) {
-        # Add "using" statements to be start of the psm1
-        $rootModule = $rootModule.Insert(0, "`r`n`r`n").Insert(
-            0,
-            (($usingStatements.ToArray() | Sort-Object | Get-Unique) -join "`r`n")
-        )
-    }
-    Set-Content -Path $buildInfo.RootModule -Value $rootModule -NoNewline
 }

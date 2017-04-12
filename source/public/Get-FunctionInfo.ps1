@@ -86,10 +86,9 @@ function Get-FunctionInfo {
                     # Discard exceptions raised, if any, by this method and skip the content 
                 }
                 if ($internalScriptBlock) {
-                    $constructor.Invoke((
-                        [String]$_.Name,
-                        $internalScriptBlock,
-                        $null
+                    $constructor.Invoke(([String]$_.Name,
+                                         $internalScriptBlock,
+                                         $null
                     ))
                 }
             }

@@ -1,8 +1,6 @@
-function ImportDependencies {
-    [BuildStep('Build')]
-    param( )
-
-    if (Test-Path 'modules.config') {
+BuildTask ImportDependencies -Stage Build -Properties @{
+    ValidWhen      = { Test-Path 'modules.config' }
+    Implementation = {
         $libPath = Join-Path $buildInfo.ModuleBase 'lib'
         if (-not (Test-Path $libPath)) {
             $null = New-Item $libPath -ItemType Directory

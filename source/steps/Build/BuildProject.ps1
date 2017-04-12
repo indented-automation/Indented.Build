@@ -1,13 +1,10 @@
-function BuildVSProject {
-    [BuildStep('Build')]
-    param( )
-
-    $path = Join-Path 'source\classes'
-
-    if (Test-Path "$path\*.*proj") {
+BuildTask BuildProject -Stage Build -Properties @{
+    Order          = 0
+    ValidWhen      = { Test-Path "class\*.*proj" }
+    Implementation = {
         Push-Location $path
         
-        Get-Item "$path\*.*proj" | ForEach-Object {
+        Get-Item 'class\*.*proj' | ForEach-Object {
             $proj = [Xml](Get-Content $_.FullName)
             if ($proj.Project.PropertyGroup.OutputType -eq 'winexe') {
                 $outputPath = Join-Path $buildInfo.ModuleBase.FullName 'bin'

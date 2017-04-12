@@ -1,26 +1,18 @@
-function Clean {
-    # .SYNOPSIS
-    #   Clean the last build of this module from the build directory.
-    # .NOTES
-    #   Author: Chris Dent
-    #
-    #   Change log:
-    #     01/02/2017 - Chris Dent - Added help.
+BuildTask Clean -Stage Build -Properties @{
+    Order          = 0
+    Implementation = {
+        if (Get-Module $buildInfo.ModuleName) {
+            Remove-Module $buildInfo.ModuleName
+        }
 
-    [BuildStep('Build', Order = 0)]
-    param( )
+        Get-ChildItem -Directory |
+            Where-Object { [Version]::TryParse($_.Name, [Ref]$null) } |
+            Remove-Item -Recurse -Force
+        if (Test-Path $buildInfo.Output) {
+            Remove-Item $buildInfo.Output -Recurse -Force
+        }
 
-    if (Get-Module $buildInfo.ModuleName) {
-        Remove-Module $buildInfo.ModuleName
+        $null = New-Item $buildInfo.Output -ItemType Directory -Force
+        $null = New-Item $buildInfo.ModuleBase -ItemType Directory -Force
     }
-
-    Get-ChildItem -Directory |
-        Where-Object { [Version]::TryParse($_.Name, [Ref]$null) } |
-        Remove-Item -Recurse -Force
-    if (Test-Path $buildInfo.Output) {
-        Remove-Item $buildInfo.Output -Recurse -Force
-    }
-
-    $null = New-Item $buildInfo.Output -ItemType Directory -Force
-    $null = New-Item $buildInfo.ModuleBase -ItemType Directory -Force
 }
