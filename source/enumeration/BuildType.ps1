@@ -1,7 +1,7 @@
 [FlagsAttribute()]
 enum BuildType {
-    Setup
-    Build
-    Test
-    Release
+    Setup   = 1
+    Build   = 2
+    Test    = 4
+    Release = 8
 }

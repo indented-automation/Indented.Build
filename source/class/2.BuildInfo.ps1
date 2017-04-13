@@ -5,13 +5,15 @@ class BuildInfo {
     [String]$ModuleName = (Get-Item $pwd).Parent.GetDirectories((Split-Path $pwd -Leaf)).Name
 
     # The build steps.
-    [String[]]$Steps
+    [BuildType]$BuildType
 
     # The release type.
     [ValidateSet('Build', 'Minor', 'Major')]
-    [String]$ReleaseType = 'Build'
+    [String]$ReleaseType
 
     [Version]$Version
+
+    [BuildTask[]]$BuildTask
 
     # The root of this repository.
     [String]$ProjectRoot = ((git rev-parse --show-toplevel) -replace '/', ([Path]::DirectorySeparatorChar))
@@ -31,23 +33,23 @@ class BuildInfo {
     # The root module associated with the package.
     [String]$ReleaseRootModule
 
-    [BuildOptions]$BuildOptions = ([BuildOptions]::new())
+    # Acceptable code coverage threshold.
+    [Double]$CodeCoverageThreshold = 0.9
 
     # Constructors
 
-    BuildInfo($Steps, $ReleaseType) {
-        $this.Steps = $Steps
+    BuildInfo($BuildType, $ReleaseType) {
+        $this.BuildType = $BuildType
         $this.ReleaseType = $ReleaseType
 
         $this.Version = $this.GetVersion()
+        $this.BuildTask = $this.GetBuildTask()
 
         $this.Package = Join-Path $pwd $this.Version
         $this.Output = Join-Path $pwd 'Output'
         if ($pwd.Path -ne $this.ProjectRoot) {
-            if ($this.BuildOptions.UseCommonBuildDirectory) {
-                $this.Package = [Path]::Combine($this.ProjectRoot, 'build', $this.ModuleName, $this.Version)
-                $this.Output = [Path]::Combine($this.ProjectRoot, 'build', $this.ModuleName, 'output')
-            }
+            $this.Package = [Path]::Combine($this.ProjectRoot, 'build', $this.ModuleName, $this.Version)
+            $this.Output = [Path]::Combine($this.ProjectRoot, 'build', $this.ModuleName, 'output')
         }
         $this.ReleaseManifest = Join-Path $this.Package ('{0}.psd1' -f $this.ModuleName)
         $this.ReleaseRootModule = Join-Path $this.Package ('{0}.psm1' -f $this.ModuleName)
@@ -77,6 +79,12 @@ class BuildInfo {
         }
 
         return $packageVersion
+    }
+
+    hidden [BuildTask[]] GetBuildTask() {
+        return Get-BuildTask | 
+            Where-Object { $BuildType -band $_.Stage -and $_.ValidWhen.Invoke() } |
+            Sort-Object Stage, Order
     }
 
     hidden [Version] IncrementVersion($version) {

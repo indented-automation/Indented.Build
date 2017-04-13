@@ -1,7 +1,5 @@
 function Start-Build {
     try {
-        Push-Location $psscriptroot
-
         # Expand steps
         $Steps = $Steps | ForEach-Object { & $_ }
         $buildInfo = New-Object BuildInfo($Steps, $ReleaseType)
@@ -35,7 +33,5 @@ function Start-Build {
 
         # Catches unexpected errors, rethrows errors raised while executing steps.
         throw
-    } finally {
-        Pop-Location
     }
 }

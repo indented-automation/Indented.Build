@@ -11,6 +11,7 @@ function BuildTask {
     )
 
     $buildTask = New-Object BuildTask($Name, $Stage)
+    
     $Properties.Keys | ForEach-Object {
         $buildTask.$_ = $Properties.$_
     }

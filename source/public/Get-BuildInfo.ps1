@@ -6,5 +6,5 @@ function Get-BuildInfo {
         [String]$ReleaseType = 'Build'
     )
 
-    $buildInfo = New-Object BuildInfo($BuildType, $ReleaseType)
+    New-Object BuildInfo($BuildType, $ReleaseType)
 }

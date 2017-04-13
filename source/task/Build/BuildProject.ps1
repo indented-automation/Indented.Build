@@ -2,9 +2,9 @@ BuildTask BuildProject -Stage Build -Properties @{
     Order          = 0
     ValidWhen      = { Test-Path "class\*.*proj" }
     Implementation = {
-        Push-Location $path
+        Push-Location 'class'
         
-        Get-Item 'class\*.*proj' | ForEach-Object {
+        Get-Item '*.*proj' | ForEach-Object {
             $proj = [Xml](Get-Content $_.FullName)
             if ($proj.Project.PropertyGroup.OutputType -eq 'winexe') {
                 $outputPath = Join-Path $buildInfo.ModuleBase.FullName 'bin'

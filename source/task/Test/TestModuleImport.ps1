@@ -1,4 +1,5 @@
 BuildTask TestModuleImport -Stage Test -Properties @{
+    Order          = 0
     Implementation = {
         $argumentList += '-NoProfile', '-Command', ('
             try {{

@@ -3,7 +3,7 @@ BuildTask PSScriptAnalyzer -Stage Test -Properties @{
     Implementation = {
         $i = 0
 
-        foreach ($path in 'source\public', 'source\private', 'source\InitializeModule.ps1') {
+        foreach ($path in 'public', 'private', 'InitializeModule.ps1') {
             Invoke-ScriptAnalyzer -Path $path -Recurse | ForEach-Object {
                 $i++
                 
