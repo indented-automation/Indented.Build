@@ -5,11 +5,10 @@ BuildTask Clean -Stage Build -Properties @{
             Remove-Module $buildInfo.ModuleName
         }
 
-        if (Test-Path $buildInfo.Package.Parent) {
-            Get-ChildItem $buildInfo.Package.Parent -Directory |
-                Where-Object { [Version]::TryParse($_.Name, [Ref]$null) } |
-                Remove-Item -Recurse -Force
-        }
+        Get-ChildItem $buildInfo.Package.Parent.FullName -Directory |
+            Where-Object { [Version]::TryParse($_.Name, [Ref]$null) } |
+            Remove-Item -Recurse -Force
+
         if (Test-Path $buildInfo.Output) {
             Remove-Item $buildInfo.Output -Recurse -Force
         }
