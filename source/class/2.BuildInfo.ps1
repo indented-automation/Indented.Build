@@ -40,11 +40,15 @@ class BuildInfo {
 
     # Constructors
 
+    # Supports testing
+    hidden BuildInfo() { }
+
     BuildInfo($BuildType, $ReleaseType) {
         $this.BuildType = $BuildType
         $this.ReleaseType = $ReleaseType
 
         if ($this.ProjectRoot = (git rev-parse --show-toplevel 2> $null)) {
+            # Converts / into \
             $this.ProjectRoot = $this.ProjectRoot.FullName
         } else {
             throw (New-Object InvalidOperationException('Unable to discover repository root'))
@@ -53,8 +57,9 @@ class BuildInfo {
         $this.Source = $this.GetSourcePath()
         $this.ModuleName = $this.GetModuleName()
         $this.Version = $this.GetVersion()
-
         $this.BuildTask = $this.GetBuildTask()
+
+        # Paths
 
         $this.Package = Join-Path $this.ProjectRoot $this.Version
         $this.Output = Join-Path $this.ProjectRoot 'output'
@@ -96,7 +101,7 @@ class BuildInfo {
             return Join-Path $pwd 'source'
         } elseif ((Split-Path $pwd -Leaf) -eq 'source') {
             return $pwd
-        } elseif ((Test-Path '*.psd1') -and ((Get-Item '*.psd1').BaseName -eq (Get-Item $pwd).Parent.Name)) {
+        } elseif ((Test-Path '*.psd1') -and ((Get-Item '*.psd1').BaseName -eq (Get-Item $pwd).Name)) {
             return $pwd
         } elseif (Test-Path (Join-Path $this.ProjectRoot $this.ProjectRoot.Name)) {
             return Join-Path $this.ProjectRoot $this.ProjectRoot.Name
