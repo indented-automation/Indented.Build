@@ -1,6 +1,11 @@
 BuildTask Merge -Stage Build -Properties @{
+    Order          = 4
     Implementation = {
-        $fileStream = [System.IO.File]::Create($buildInfo.RootModule)
+        $mergeItems = 'enumeration', 'class', 'private', 'public', 'InitializeModule.ps1' | ForEach-Object {
+            Join-Path $buildInfo.Source $_
+        }
+
+        $fileStream = [System.IO.File]::Create($buildInfo.ReleaseRootModule)
         $writer = New-Object System.IO.StreamWriter($fileStream)
 
         $usingStatements = New-Object System.Collections.Generic.List[String]
@@ -25,7 +30,7 @@ BuildTask Merge -Stage Build -Properties @{
 
         $writer.Close()
 
-        $rootModule = (Get-Content $buildInfo.RootModule -Raw).Trim()
+        $rootModule = (Get-Content $buildInfo.ReleaseRootModule -Raw).Trim()
         if ($usingStatements.Count -gt 0) {
             # Add "using" statements to be start of the psm1
             $rootModule = $rootModule.Insert(0, "`n`n").Insert(
@@ -33,6 +38,6 @@ BuildTask Merge -Stage Build -Properties @{
                 (($usingStatements.ToArray() | Sort-Object | Get-Unique) -join "`n")
             )
         }
-        Set-Content -Path $buildInfo.RootModule -Value $rootModule -NoNewline
+        Set-Content -Path $buildInfo.ReleaseRootModule -Value $rootModule -NoNewline
     }
 }

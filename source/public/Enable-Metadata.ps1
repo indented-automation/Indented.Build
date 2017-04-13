@@ -1,3 +1,6 @@
+using namespace System.Management.Automation
+using namespace System.Management.Automation.Language
+
 function Enable-Metadata {
     # .SYNOPSIS
     #   Enable a metadata property which has been commented out.

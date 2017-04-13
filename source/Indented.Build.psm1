@@ -1,3 +1,7 @@
 # Stub loader
 
-Get-ChildItem enumeration, class, public | ForEach-Object { . $_.FullName }
+foreach ($folder in 'enumeration', 'class', 'public') {
+    Get-ChildItem (Join-Path $psscriptroot $folder) -Recurse -File -Filter *.ps1 | ForEach-Object {
+        . $_.FullName
+    }
+}

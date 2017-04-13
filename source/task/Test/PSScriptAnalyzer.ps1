@@ -1,5 +1,5 @@
 BuildTask PSScriptAnalyzer -Stage Test -Properties @{
-    ValidWhen      = { $ReleaseType -ge 'Minor' }
+    ValidWhen      = { $this.ReleaseType -ge 'Minor' }
     Implementation = {
         $i = 0
 

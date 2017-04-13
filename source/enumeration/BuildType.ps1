@@ -4,4 +4,5 @@ enum BuildType {
     Build   = 2
     Test    = 4
     Release = 8
+    Publish = 16
 }

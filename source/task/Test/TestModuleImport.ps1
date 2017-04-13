@@ -1,16 +1,20 @@
 BuildTask TestModuleImport -Stage Test -Properties @{
     Order          = 0
     Implementation = {
-        $argumentList += '-NoProfile', '-Command', ('
-            try {{
-                Import-Module "{0}" -ErrorAction Stop
-            }} catch {{
-                $_.Exception.Message
-                exit 1
-            }}
-            exit 0
-        ' -f $buildInfo.Manifest)
+        $exceptionMessage = powershell.exe -NoProfile -Command "
+            try {
+                Import-Module $($buildInfo.ReleaseManifest.FullName) -ErrorAction Stop
 
-        & powershell.exe $argumentList
+                exit 0
+            } catch {
+                $_.Exception.Message
+
+                exit 1
+            }
+        "
+        
+        if ($lastexitcode -ne 0) {
+            throw $exceptionMessage
+        }
     }
 }

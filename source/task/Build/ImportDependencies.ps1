@@ -1,5 +1,5 @@
 BuildTask ImportDependencies -Stage Build -Properties @{
-    ValidWhen      = { Test-Path 'modules.config' }
+    ValidWhen      = { Test-Path (Join-Path $this.Source 'modules.config') }
     Implementation = {
         $libPath = Join-Path $buildInfo.ModuleBase 'lib'
         if (-not (Test-Path $libPath)) {

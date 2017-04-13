@@ -5,14 +5,16 @@ BuildTask Clean -Stage Build -Properties @{
             Remove-Module $buildInfo.ModuleName
         }
 
-        Get-ChildItem -Directory |
-            Where-Object { [Version]::TryParse($_.Name, [Ref]$null) } |
-            Remove-Item -Recurse -Force
+        if (Test-Path $buildInfo.Package.Parent) {
+            Get-ChildItem $buildInfo.Package.Parent -Directory |
+                Where-Object { [Version]::TryParse($_.Name, [Ref]$null) } |
+                Remove-Item -Recurse -Force
+        }
         if (Test-Path $buildInfo.Output) {
             Remove-Item $buildInfo.Output -Recurse -Force
         }
 
         $null = New-Item $buildInfo.Output -ItemType Directory -Force
-        $null = New-Item $buildInfo.ModuleBase -ItemType Directory -Force
+        $null = New-Item $buildInfo.Package -ItemType Directory -Force
     }
 }

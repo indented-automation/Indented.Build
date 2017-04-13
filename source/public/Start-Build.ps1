@@ -1,31 +1,38 @@
 function Start-Build {
+    [CmdletBinding()]
+    param(
+        [BuildType]$BuildType = 'Build, Test',
+
+        [String]$ReleaseType = 'Build'
+    )
+
     try {
-        # Expand steps
-        $Steps = $Steps | ForEach-Object { & $_ }
-        $buildInfo = New-Object BuildInfo($Steps, $ReleaseType)
-        if ($GetBuildInfo) {
-            return $buildInfo
-        } else {
-            $Script:Quiet = $Quiet.ToBool()
+        $buildInfo = Get-BuildInfo @psboundparameters
 
-            Write-Message ('Building {0} ({1})' -f $buildInfo.ModuleName, $buildInfo.Version)
-            
-            foreach ($step in $steps) {
-                $stepInfo = Invoke-Step $step
+        $progressParams = @{
+            Activity = 'Building {0} ({1})' -f $buildInfo.ModuleName, $buildInfo.Version
+            Id       = 1
+        }
+        Write-Progress @progressParams
 
-                if ($PassThru) {
-                    $stepInfo
-                }
+        Write-Message ('Building {0} ({1})' -f $buildInfo.ModuleName, $buildInfo.Version)
+        
+        foreach ($task in $buildInfo.BuildTask) {
+            $taskInfo = New-Object PSObject
+            Invoke-BuildTask $task -BuildInfo $BuildInfo -TaskInfo ([Ref]$taskInfo)
 
-                if ($stepInfo.Result -ne 'Success') {
-                    throw $stepinfo.Errors
-                }
+            if ($PassThru) {
+                $taskInfo
             }
 
-            Write-Message "Build succeeded!" -ForegroundColor Green
-
-            $lastexitcode = 0
+            if ($taskInfo.Result -ne 'Success') {
+                throw $taskInfo.Errors
+            }
         }
+
+        Write-Message "Build succeeded!" -ForegroundColor Green
+
+        $lastexitcode = 0
     } catch {
         Write-Message 'Build Failed!' -ForegroundColor Red
 
