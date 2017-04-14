@@ -2,11 +2,6 @@
     Order          = 1
     ValidWhen      = { $null -ne $env:NuGetApiKey }
     Implementation = {
-        $erroractionpreference = 'Stop'
-        try {
-            Publish-Module -Path $buildInfo.ReleaseManifest -NuGetApiKey $env:NuGetApiKey -Repository PSGallery
-        } catch {
-            throw
-        }
+        Publish-Module -Path $buildInfo.Package -NuGetApiKey $env:NuGetApiKey -Repository PSGallery -ErrorAction Stop
     }
 }

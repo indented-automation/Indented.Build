@@ -15,6 +15,17 @@ BuildTask TestModule -Stage Test -Properties @{
             }
             $pester = Invoke-Pester @params
 
+            if (Get-Command Add-AppveyorCompilationMessage -ErrorAction SilentlyContinue) {
+                $params = @{
+                    Message =  ('{0} of {1} tests passed' -f @($pester.PassedScenarios).Count, (@($pester.PassedScenarios).Count + @($pester.FailedScenarios).Count))
+                    Category = 'Information'
+                }
+                if (($pester.FailedScenarios).Count -gt 0) {
+                    $params.Category = 'Warning'
+                }
+                Add-AppveyorCompilationMessage @params
+            }
+
             if ($pester.FailedCount -gt 0) {
                 throw 'PS unit tests failed'
             }
