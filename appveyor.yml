@@ -2,6 +2,10 @@ os: WMF 5
 
 version: 2.4.{build}.0
 
+environment:
+  NuGetApiKey:
+    secure: kp9PPkiJ/iiPfX0b1m/NYh88GLaok3NlJc1XAr6rWH+umpCiZVwvsK9CVfMNYElL
+
 skip_commits:
   message: /updated readme.*|update readme.*s/
 
@@ -17,3 +21,6 @@ install:
 
 build_script:
   - ps: Start-Build -BuildType Build
+
+on_success:
+- ps: Start-Build -BuildType Publish

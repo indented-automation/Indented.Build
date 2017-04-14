@@ -2,12 +2,13 @@ BuildTask BuildSolution -Stage Build -Properties @{
     Order          = 3
     ValidWhen      = { Test-Path (Join-Path $this.Source 'class\*.sln') }
     Implementation = {
-        Push-Location 'class'
+        Push-Location (Join-Path $buildInfo.Source 'class')
         
         try {
-            $null = Get-Command msbuild
-            
-            nuget restore
+            $webClient = New-Object System.Net.WebClient
+            $webClient.DownloadFile('https://dist.nuget.org/win-x86-commandline/latest/nuget.exe', "$pwd\nuget.exe")
+
+            .\nuget.exe restore
 
             msbuild /t:Clean /t:Build /p:DebugSymbols=false /p:DebugType=None
             if ($lastexitcode -ne 0) {
@@ -23,10 +24,13 @@ BuildTask BuildSolution -Stage Build -Properties @{
                 Get-ChildItem $_.FullName -Filter *.dll -Recurse |
                     Where-Object FullName -like '*bin*' |
                     Copy-Item -Destination $path
-            }   
+            }
         } catch {
             throw
         } finally {
+            if (Test-Path .\nuget.exe) {
+                Remove-Item .\nuget.exe
+            }
             Pop-Location
         }
     }

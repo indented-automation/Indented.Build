@@ -52,7 +52,6 @@ The executor can only be used with PowerShell 5.0 or higher.
      * When a code signing certificate is available.
    - [ ] UpdateMarkdownHelp
      * When platyPS is available.
-   - [ ] UpdateVersion
  - [ ] Publish
    - [ ] PublishGitHubRelease
    - [x] PublishToCurrentUser
