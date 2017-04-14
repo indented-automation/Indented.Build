@@ -1,6 +1,7 @@
 BuildTask TestModule -Stage Test -Properties @{
     Order          = 2
     Implementation = {
+        $erroractionpreference = 'Stop'
         try {
             if (-not (Get-ChildItem (Join-Path $buildInfo.Source 'test') -Filter *.tests.ps1 -Recurse -File)) {
                 throw 'The PS project must have tests!'    
