@@ -3,7 +3,7 @@
     Implementation = {
         Import-Module $buildInfo.ReleaseManifest -Global -ErrorAction Stop
         $params = @{
-            Script       = 'test'
+            Script       = Join-Path $buildInfo.Source 'test'
             CodeCoverage = $buildInfo.ReleaseRootModule
             OutputFile   = Join-Path $buildInfo.Output ('{0}.xml' -f $buildInfo.ModuleName)
             Show         = 'None'

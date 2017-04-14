@@ -1,6 +1,6 @@
-﻿os: WMF 5
+os: WMF 5
 
-version: 1.0.{build}.0
+version: 2.4.{build}.0
 
 skip_commits:
   message: /updated readme.*|update readme.*s/
@@ -9,9 +9,10 @@ build: false
 
 install:
   - ps: |
-      Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+      $null = Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
       Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
       Install-Module Configuration, Pester, Indented.Build
+      Set-Location $env:APPVEYOR_BUILD_FOLDER\$env:APPVEYOR_PROJECT_NAME
       Get-BuildInfo -BuildType Build
 
 build_script:

@@ -12,7 +12,7 @@
 RootModule = 'Indented.Build.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.0.0.0'
+ModuleVersion = '2.3.0.0'
 
 # ID used to uniquely identify this module
 GUID = '80b18c29-d513-43fa-891d-49ba75ed3740'
