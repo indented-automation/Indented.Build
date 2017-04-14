@@ -33,9 +33,9 @@ BuildTask Merge -Stage Build -Properties @{
         $rootModule = (Get-Content $buildInfo.ReleaseRootModule -Raw).Trim()
         if ($usingStatements.Count -gt 0) {
             # Add "using" statements to be start of the psm1
-            $rootModule = $rootModule.Insert(0, "`n`n").Insert(
+            $rootModule = $rootModule.Insert(0, "`r`n`r`n").Insert(
                 0,
-                (($usingStatements.ToArray() | Sort-Object | Get-Unique) -join "`n")
+                (($usingStatements.ToArray() | Sort-Object | Get-Unique) -join "`r`n")
             )
         }
         Set-Content -Path $buildInfo.ReleaseRootModule -Value $rootModule -NoNewline

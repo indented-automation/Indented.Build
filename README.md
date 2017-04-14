@@ -35,7 +35,7 @@ The executor can only be used with PowerShell 5.0 or higher.
    - [x] ImportDependencies
      * When module\modules.config exists.
    - [x] UpdateMetadata
- - [ ] Test
+ - [x] Test
    - [x] TestModuleImport
    - [x] PSScriptAnalyzer
      * When the release type is minor or greater.
@@ -53,5 +53,5 @@ The executor can only be used with PowerShell 5.0 or higher.
    - [ ] UpdateVersion
  - [ ] Publish
    - [ ] PublishGitHubRelease
-   - [ ] PublishToCurrentUser
+   - [x] PublishToCurrentUser
    - [x] PublishToPSGallery

@@ -1,5 +1,9 @@
 BuildTask PublishToCurrentUser -Stage Publish -Properties @{
     Implementation = {
-        Copy-Item $buildInfo.Package -Destination "$home\Documents\WindowsPowerShell\Modules" -Recurse
+        $path = '{0}\Documents\WindowsPowerShell\Modules\{1}' -f $home, $buildInfo.ModuleName
+        if (-not (Test-Path $path)) {
+            $null = New-Item $path -ItemType Directory
+        }
+        Copy-Item $buildInfo.Package -Destination $path -Recurse
     }
 }
