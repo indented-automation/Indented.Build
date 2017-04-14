@@ -52,7 +52,7 @@ function Invoke-BuildTask {
             & $BuildTask.Implementation
         } catch {
             $TaskInfo.Value.Result = 'Failed'
-            $TaskInfo.Value.Errors = $_.Exception
+            $TaskInfo.Value.Errors = $_
             $messageColour = 'Red'
         }
 

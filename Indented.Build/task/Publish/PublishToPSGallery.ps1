@@ -4,8 +4,7 @@
     Implementation = {
         $erroractionpreference = 'Stop'
         try {
-            Import-Module $buildInfo.ModuleName
-            Publish-Module $buildInfo.ModuleName -NuGetApiKey $env:NuGetApiKey -Repository PSGallery
+            Publish-Module -Path $buildInfo.ReleaseManifest -NuGetApiKey $env:NuGetApiKey -Repository PSGallery
         } catch {
             throw
         }

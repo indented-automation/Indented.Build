@@ -5,6 +5,6 @@ BuildTask PublishToCurrentUser -Stage Publish -Properties @{
         if (-not (Test-Path $path)) {
             $null = New-Item $path -ItemType Directory
         }
-        Copy-Item $buildInfo.Package -Destination $path -Recurse
+        Copy-Item $buildInfo.Package -Destination $path -Recurse -Force
     }
 }
