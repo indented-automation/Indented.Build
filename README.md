@@ -45,6 +45,7 @@ The executor can only be used with PowerShell 5.0 or higher.
    - [x] ModuleCodeCoverage
    - [x] TestSolution
      * When module\class\*.sln exists, and the nunitconsole (nuget package) has been restored.
+   - [x] UploadAppVeyorTestResults
  - [ ] Release
    - [ ] UpdateCatalog
      * When a code signing certificate is available.
