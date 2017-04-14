@@ -40,6 +40,7 @@ The executor can only be used with PowerShell 5.0 or higher.
    - [x] PSScriptAnalyzer
      * When the release type is minor or greater.
    - [x] TestModule
+   - [x] ModuleCodeCoverage
    - [x] TestSolution
      * When module\class\*.sln exists, and the nunitconsole (nuget package) has been restored.
  - [ ] Release
@@ -53,4 +54,4 @@ The executor can only be used with PowerShell 5.0 or higher.
  - [ ] Publish
    - [ ] PublishGitHubRelease
    - [ ] PublishToCurrentUser
-   - [ ] PublishToPSGallery
+   - [x] PublishToPSGallery

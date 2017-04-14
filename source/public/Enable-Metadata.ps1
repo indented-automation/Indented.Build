@@ -17,14 +17,12 @@ function Enable-Metadata {
     # .OUTPUTS
     #   System.Boolean
     # .NOTES
-    #   Author: Chris Dent
-    #
     #   Change log:
     #     04/08/2016 - Chris Dent - Created.
 
     [CmdletBinding()]
-    [OutputType([System.Boolean])]
-    param(
+    [OutputType([Boolean])]
+    param (
         [Parameter(ValueFromPipelineByPropertyName = $true, Position = 0)]
         [ValidateScript( { Test-Path $_ -PathType Leaf } )]
         [Alias("PSPath")]

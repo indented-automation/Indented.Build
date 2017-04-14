@@ -27,15 +27,13 @@ function Get-FunctionInfo {
     #
     #   Get all functions declared in all ps1 files in C:\Scripts.
     # .NOTES
-    #   Author: Chris Dent
-    #
     #   Change log:
     #     10/12/2015 - Chris Dent - Improved error handling.
     #     28/10/2015 - Chris Dent - Created.
 
     [CmdletBinding(DefaultParameterSetName = 'FromPath')]
     [OutputType([FunctionInfo])]
-    param(
+    param (
         [Parameter(Position = 1, ValueFromPipelineByPropertyName = $true, ParameterSetName = 'FromPath')]
         [Alias('FullName')]
         [String]$Path,
@@ -83,7 +81,7 @@ function Get-FunctionInfo {
                 try {
                     $internalScriptBlock = $_.Body.GetScriptBlock()
                 } catch {
-                    # Discard exceptions raised, if any, by this method and skip the content 
+                    Write-Debug $_.Exception.Message
                 }
                 if ($internalScriptBlock) {
                     $constructor.Invoke(([String]$_.Name,

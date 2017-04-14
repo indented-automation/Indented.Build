@@ -10,12 +10,12 @@ function Invoke-BuildTask {
     # .OUTPUTS
     #   System.Object
     # .NOTES
-    #   Author: Chris Dent
-    #
     #   Change log:
     #     01/02/2017 - Chris Dent - Added help.
     
-    param(
+    [CmdletBinding()]
+    [OutputType([PSObject])]
+    param (
         [Parameter(ValueFromPipeline = $true)]
         [BuildTask]$BuildTask,
 
@@ -49,7 +49,7 @@ function Invoke-BuildTask {
         $stopWatch.Start()
 
         try {
-            $BuildTask.Implementation.InvokeWithContext($null, (Get-Variable buildInfo), $null)
+            & $BuildTask.Implementation
         } catch {
             $TaskInfo.Value.Result = 'Failed'
             $TaskInfo.Value.Errors = $_.Exception.InnerException
@@ -60,10 +60,10 @@ function Invoke-BuildTask {
         $TaskInfo.Value.TimeTaken = $stopWatch.Elapsed
 
         if (-not $Quiet) {
-            Write-Host $BuildTask.Name.PadRight(30) -ForegroundColor Cyan -NoNewline
-            Write-Host -ForegroundColor $messageColour -Object $taskInfo.Value.Result.PadRight(10) -NoNewline
-            Write-Host $taskInfo.Value.StartTime.ToString('t').PadRight(10) -ForegroundColor Gray -NoNewLine
-            Write-Host $taskInfo.Value.TimeTaken -ForegroundColor Gray
+            Write-Message $BuildTask.Name.PadRight(30) -ForegroundColor Cyan -NoNewline
+            Write-Message -ForegroundColor $messageColour -Object $taskInfo.Value.Result.PadRight(10) -NoNewline
+            Write-Message $taskInfo.Value.StartTime.ToString('t').PadRight(10) -ForegroundColor Gray -NoNewLine
+            Write-Message $taskInfo.Value.TimeTaken -ForegroundColor Gray
         }
     }
 }

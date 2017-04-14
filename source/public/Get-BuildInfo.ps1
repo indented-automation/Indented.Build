@@ -1,9 +1,10 @@
 function Get-BuildInfo {
     [CmdletBinding()]
-    param(
+    [OutputType('BuildInfo')]
+    param (
         [BuildType]$BuildType = 'Build, Test',
 
-        [String]$ReleaseType = 'Build'
+        [ReleaseType]$ReleaseType = 'Build'
     )
 
     New-Object BuildInfo($BuildType, $ReleaseType)

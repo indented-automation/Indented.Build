@@ -1,5 +1,6 @@
 function BuildTask {
-    param(
+    [OutputType('BuildTask')]
+    param (
         [Parameter(Mandatory = $true)]
         [String]$Name,
 

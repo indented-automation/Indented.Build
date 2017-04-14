@@ -27,10 +27,10 @@ CompanyName = 'Chris Dent'
 Copyright = '(c) Chris Dent 2017'
 
 # Description of the functionality provided by this module
-# Description = ''
+Description = 'Indented.Build centralises the build processes / scripts used by my modules.'
 
 # Minimum version of the Windows PowerShell engine required by this module
-# PowerShellVersion = ''
+PowerShellVersion = '5.1'
 
 # Name of the Windows PowerShell host required by this module
 # PowerShellHostName = ''
@@ -92,7 +92,7 @@ PrivateData = @{
     PSData = @{
 
         # Tags applied to this module. These help with module discovery in online galleries.
-        # Tags = @()
+        Tags = @('Build')
 
         # A URL to the license for this module.
         # LicenseUri = ''

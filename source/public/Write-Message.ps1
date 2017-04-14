@@ -1,14 +1,33 @@
 function Write-Message {
-    param(
+    # .SYNOPSIS
+    #   Writes a message to the console.
+    # .DESCRIPTION
+    #   Writes a message to the console.
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
+    [CmdletBinding()]
+    [OutputType([Void])]
+    param (
         [String]$Object,
 
-        [ConsoleColor]$ForegroundColor
+        [ConsoleColor]$ForegroundColor,
+
+        [Switch]$NoNewLine,
+        
+        [Switch]$Quiet,
+
+        [Switch]$WithPadding
     )
 
     $null = $psboundparameters.Remove('Quiet')
-    if (-not $Script:Quiet) {
-        Write-Host
+    $null = $psboundparameters.Remove('WithPadding')
+    if (-not $Quiet) {
+        if ($WithPadding) {
+            Write-Host
+        }
         Write-Host @psboundparameters
-        Write-Host
+        if ($WithPadding) {
+            Write-Host
+        }
     }
 }

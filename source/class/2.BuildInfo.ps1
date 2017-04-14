@@ -8,8 +8,7 @@ class BuildInfo {
     [BuildType]$BuildType
 
     # The release type.
-    [ValidateSet('Build', 'Minor', 'Major')]
-    [String]$ReleaseType
+    [ReleaseType]$ReleaseType
 
     # The version which will be created.
     [Version]$Version
@@ -113,13 +112,9 @@ class BuildInfo {
     hidden [Version] GetVersion() {
         # Prefer to use version numbers from git.
         $packageVersion = [Version]'1.0.0.0'
-        try {
-            [String]$gitVersion = (git describe --tags 2> $null) -replace '^v'
-            if ([Version]::TryParse($gitVersion, [Ref]$packageVersion)) {
-                return $this.IncrementVersion($packageVersion)
-            }
-        } catch {
-            # Do nothing, should never hit this.
+        [String]$gitVersion = (git describe --tags 2> $null) -replace '^v'
+        if ([Version]::TryParse($gitVersion, [Ref]$packageVersion)) {
+            return $this.IncrementVersion($packageVersion)
         }
 
         # Fall back on version numbers in the manifest.

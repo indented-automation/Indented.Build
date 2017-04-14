@@ -1,13 +1,13 @@
 BuildTask TestModule -Stage Test -Properties @{
+    Order          = 2
     Implementation = {
         if (-not (Get-ChildItem 'test' -Filter *.tests.ps1 -Recurse -File)) {
             throw 'The PS project must have tests!'    
         }
 
-        Import-Module $buildInfo.ReleaseManifest -ErrorAction Stop
+        Import-Module $buildInfo.ReleaseManifest -Global -ErrorAction Stop
         $params = @{
             Script       = 'test'
-            CodeCoverage = $buildInfo.ReleaseRootModule
             OutputFile   = Join-Path $buildInfo.Output ('{0}.xml' -f $buildInfo.ModuleName)
             PassThru     = $true
         }
@@ -15,14 +15,6 @@ BuildTask TestModule -Stage Test -Properties @{
 
         if ($pester.FailedCount -gt 0) {
             throw 'PS unit tests failed'
-        }
-
-        [Double]$codeCoverage = $pester.CodeCoverage.NumberOfCommandsExecuted / $pester.CodeCoverage.NumberOfCommandsAnalyzed
-        $pester.CodeCoverage.MissedCommands | Export-Csv (Join-Path $buildInfo.Output 'CodeCoverage.csv') -NoTypeInformation
-
-        if ($codecoverage -lt $buildInfo.CodeCoverageThreshold) {
-            $message = 'Code coverage ({0:P}) is below threshold {1:P}.' -f $codeCoverage, $buildInfo.CodeCoverageThreshold 
-            throw $message
         }
     }
 }
