@@ -17,6 +17,3 @@ install:
 
 build_script:
   - ps: Start-Build -BuildType Build
-
-test_script:
-  - ps: Start-Build -BuildType Test
