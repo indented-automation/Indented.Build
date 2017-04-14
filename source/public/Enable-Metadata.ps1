@@ -33,19 +33,19 @@ function Enable-Metadata {
 
     process {
         # If the element can be found using Get-Metadata leave it alone and return true
-        $shouldCreate = $false
+        $shouldEnable = $false
         try {
             $null = Get-Metadata @psboundparameters -ErrorAction Stop
         } catch [ItemNotFoundException] {
             # The function will only execute where the requested value is not present
-            $shouldCreate = $true
+            $shouldEnable = $true
         } catch {
             # Ignore other errors which may be raised by Get-Metadata except path not found.
             if ($_.Exception.Message -eq 'Path must point to a .psd1 file') {
                 $pscmdlet.ThrowTerminatingError($_)
             }
         }
-        if (-not $shouldCreate) {
+        if (-not $shouldEnable) {
             return $true
         }
 

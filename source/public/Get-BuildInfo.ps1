@@ -2,7 +2,7 @@ function Get-BuildInfo {
     [CmdletBinding()]
     [OutputType('BuildInfo')]
     param (
-        [BuildType]$BuildType = 'Build, Test',
+        [BuildType]$BuildType = 'Setup, Build, Test',
 
         [ReleaseType]$ReleaseType = 'Build'
     )

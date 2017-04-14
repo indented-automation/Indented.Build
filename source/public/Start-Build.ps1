@@ -2,7 +2,7 @@ function Start-Build {
     [CmdletBinding()]
     [OutputType([PSObject])]
     param (
-        [BuildType]$BuildType = 'Build, Test',
+        [BuildType]$BuildType = 'Setup, Build, Test',
 
         [ValidateSet('Build', 'Minor', 'Major')]
         [ReleaseType]$ReleaseType = 'Build',
