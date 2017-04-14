@@ -1,5 +1,5 @@
 BuildTask Clean -Stage Build -Properties @{
-    ValidWhen      = { -not (Test-Path (Join-Path $this.Source 'class\*.sln')) -and (Test-Path (Join-Path $this.Source 'class\*.cs')) }
+    ValidWhen      = { -not (Test-Path (Join-Path $this.Source 'class\*.sln')) -and -not (Test-Path (Join-Path $this.Source 'class\*.*proj')) -and (Test-Path (Join-Path $this.Source 'class\*.cs')) }
     Implementation = {
         $outputPath = Join-Path $buildInfo.ModuleBase.FullName 'lib'
 
