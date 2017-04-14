@@ -1,5 +1,7 @@
 # Indented.Build
 
+[![Build status](https://ci.appveyor.com/api/projects/status/j4fg3mj2d4ibyt1c?svg=true)](https://ci.appveyor.com/project/indented-automation/indented-build)
+
 Indented.Build centralises the build processes / scripts used by my modules.
 
 The goal of this module is to act as a means of accessing and executing a well maintained set of steps which can apply across a very large module base (public and private).
