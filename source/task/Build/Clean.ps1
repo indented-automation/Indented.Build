@@ -5,7 +5,7 @@ BuildTask Clean -Stage Build -Properties @{
             Remove-Module $buildInfo.ModuleName
         }
 
-        Get-ChildItem $buildInfo.Package.Parent.FullName -Directory |
+        Get-ChildItem $buildInfo.Package.Parent.FullName -Directory -ErrorAction SilentlyContinue |
             Where-Object { [Version]::TryParse($_.Name, [Ref]$null) } |
             Remove-Item -Recurse -Force
 

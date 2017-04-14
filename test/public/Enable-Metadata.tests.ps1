@@ -8,6 +8,5 @@ InModuleScope Indented.Build {
         }
         Mock Get-Metadata
         Mock Set-Content
-    
     }
 }
