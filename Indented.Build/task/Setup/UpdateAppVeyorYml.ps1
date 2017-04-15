@@ -1,5 +1,6 @@
 ﻿BuildTask UpdateAppVeyorYml -Stage Setup -Properties @{
     Order          = 0
+    ValidWhen      = { -not (Test-Path (Join-Path $buildInfo.ProjectRoot 'appveyor.yml')) }
     Implementation = {
         $path = Join-Path $buildInfo.ProjectRoot 'appveyor.yml'
         $content = 'os: WMF 5',
@@ -24,6 +25,6 @@
                    '',
                    'test_script:',
                    '  - ps: Start-Build -BuildType Test'
-        Set-Content $path -Value $content -NoNewLine
+        Set-Content $path -Value $content
     }
 }
