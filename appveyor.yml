@@ -21,6 +21,3 @@ install:
 
 build_script:
   - ps: Start-Build -BuildType Build
-
-on_success:
-- ps: Start-Build -BuildType Publish
