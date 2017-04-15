@@ -1,6 +1,6 @@
 BuildTask BuildSolution -Stage Build -Properties @{
     Order          = 3
-    ValidWhen      = { Test-Path (Join-Path $this.Source 'class\*.sln') }
+    ValidWhen      = { Test-Path (Join-Path $buildInfo.Source 'class\*.sln') }
     Implementation = {
         Push-Location (Join-Path $buildInfo.Source 'class')
         

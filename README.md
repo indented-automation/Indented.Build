@@ -22,6 +22,9 @@ The executor can only be used with PowerShell 5.0 or higher.
 
 # Tasks
 
+ - [x] Setup
+   - [x] UpdateAppVeyorYml
+   - [x] UpdateAppVeyorVersion
  - [ ] Build
    - [x] Clean
    - [x] TestSyntax
@@ -37,22 +40,25 @@ The executor can only be used with PowerShell 5.0 or higher.
    - [x] ImportDependencies
      * When module\modules.config exists.
    - [x] UpdateMetadata
+   - [x] UpdateMarkdownHelp
+     * When platyPS is available.
  - [x] Test
    - [x] TestModuleImport
    - [x] PSScriptAnalyzer
      * When the release type is minor or greater.
    - [x] TestModule
-   - [x] ModuleCodeCoverage
    - [x] TestSolution
      * When module\class\*.sln exists, and the nunitconsole (nuget package) has been restored.
+   - [x] AddAppVeyorCommitMessage
+     * When Add-AppveyorCompilationMessage is available.
    - [x] UploadAppVeyorTestResults
+     * When env:APPVEYOR_JOB_ID is set.
+   - [x] ValidateTestResults
  - [ ] Release
    - [ ] UpdateCatalog
      * When a code signing certificate is available.
    - [ ] SignModule
      * When a code signing certificate is available.
-   - [ ] UpdateMarkdownHelp
-     * When platyPS is available.
  - [ ] Publish
    - [ ] PublishGitHubRelease
    - [x] PublishToCurrentUser

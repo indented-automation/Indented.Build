@@ -1,5 +1,6 @@
 using namespace System.IO
 
+[System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssigments', '')]
 class BuildInfo {
     # The name of the module being built.
     [String]$ModuleName
@@ -75,6 +76,8 @@ class BuildInfo {
     # Private methods
 
     hidden [BuildTask[]] GetBuildTask() {
+        $buildInfo = $this
+
         return Get-BuildTask | 
             Where-Object { $BuildType -band $_.Stage -and $_.ValidWhen.Invoke() } |
             Sort-Object Stage, Order

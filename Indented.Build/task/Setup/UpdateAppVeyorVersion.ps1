@@ -1,5 +1,6 @@
 ﻿BuildTask UpdateAppVeyorVersion -Stage Setup -Properties @{
-    ValidWhen      = { Test-Path (Join-Path $this.ProjectRoot 'appveyor.yml') }
+    Order          = 1
+    ValidWhen      = { Test-Path (Join-Path $buildInfo.ProjectRoot 'appveyor.yml') }
     Implementation = {
         $versionString = '{0}.{1}.{{build}}.0' -f $buildInfo.Version.Major, $buildInfo.Version.Minor
 

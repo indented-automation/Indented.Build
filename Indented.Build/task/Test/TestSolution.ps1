@@ -1,13 +1,14 @@
 BuildTask TestSolution -Stage Test -Properties @{
-    ValidWhen = { (Test-Path 'class\*.sln') -and (Test-Path 'class\packages\NUnit.ConsoleRunner.*\tools\nunit3-console.exe') }
+    ValidWhen      = { (Test-Path (Join-Path $buildInfo.Source 'class\*.sln')) -and (Test-Path (Join-Path $buildInfo.Source 'class\packages\NUnit.ConsoleRunner.*\tools\nunit3-console.exe')) }
+    Order          = 2
     Implementation = {
-        $nunitConsole = (Resolve-Path 'class\packages\NUnit.ConsoleRunner.*\tools\nunit3-console.exe').Path
-        Get-ChildItem 'class' -Filter *tests.dll -Recurse | Where-Object FullName -like '*bin*' | ForEach-Object {
-            & $nunitConsole $_.FullName --result ('{0}\{1}.xml' -f $buildInfo.Output.FullName, ($_.Name -replace '\.tests'))
+        Push-Location (Join-Path $buildInfo.Source 'class')
 
-            if ($lastexitcode -ne 0) {
-                throw 'Solution unit tests failed'
-            }
+        $nunitConsole = (Resolve-Path 'packages\NUnit.ConsoleRunner.*\tools\nunit3-console.exe').Path
+        Get-ChildItem -Filter *tests.dll -Recurse | Where-Object FullName -like '*bin*' | ForEach-Object {
+            & $nunitConsole $_.FullName --result ('{0}\{1}.xml' -f $buildInfo.Output.FullName, ($_.Name -replace '\.tests'))
         }
+
+        Pop-Location
     }
 }

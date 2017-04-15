@@ -1,5 +1,5 @@
 ﻿BuildTask UploadAppVeyorTestResults -Stage Test -Properties @{
-    Order          = 9999
+    Order          = 3
     ValidWhen      = { $null -ne $env:APPVEYOR_JOB_ID }
     Implementation = {
         $path = Join-Path $buildInfo.Output ('{0}.xml' -f $buildInfo.ModuleName)

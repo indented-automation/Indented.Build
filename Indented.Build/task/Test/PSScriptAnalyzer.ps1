@@ -1,21 +1,15 @@
 BuildTask PSScriptAnalyzer -Stage Test -Properties @{
     Order          = 1
-    ValidWhen      = { $this.ReleaseType -ge 'Minor' -and (Get-Module PSScriptAnalyzer -ListAvailable) }
+    ValidWhen      = { Get-Module PSScriptAnalyzer -ListAvailable }
     Implementation = {
-        $i = 0
-
-        foreach ($directory in 'enumeration', 'class', 'private', 'public', 'InitializeModule.ps1') {
-            $path = Join-Path $buildInfo.Source $directory
+        'enumeration', 'class', 'private', 'public', 'InitializeModule.ps1' | ForEach-Object {
+            $path = Join-Path $buildInfo.Source $_
             if (Test-Path $path) {
                 Invoke-ScriptAnalyzer -Path $path -Recurse | ForEach-Object {
-                    $i++
-
                     $_
+                    $_ | Export-Csv (Join-Path $buildInfo.Output 'psscriptanalyzer.csv') -NoTypeInformation -Append
                 }
             }
-        }
-        if ($i -gt 0) {
-            throw 'PSScriptAnalyzer tests are not clean'
         }
     }
 }

@@ -32,7 +32,7 @@ function Get-FunctionInfo {
     #     28/10/2015 - Chris Dent - Created.
 
     [CmdletBinding(DefaultParameterSetName = 'FromPath')]
-    [OutputType([FunctionInfo])]
+    [OutputType([System.Management.Automation.FunctionInfo])]
     param (
         [Parameter(Position = 1, ValueFromPipelineByPropertyName = $true, ParameterSetName = 'FromPath')]
         [Alias('FullName')]
