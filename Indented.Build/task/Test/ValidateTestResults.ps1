@@ -7,7 +7,8 @@
         $pester  = Import-CliXml $path
 
         # PSScriptAnalyzer
-        if ($testResults = Import-Csv (Join-Path $buildInfo.Output 'psscriptanalyzer.csv')) {
+        $path = Join-Path $buildInfo.Output 'psscriptanalyzer.csv'
+        if ((Test-Path $path) -and ($testResults = Import-Csv $path)) {
             '{0} warnings were raised by PSScriptAnalyzer' -f @($testResults).Count
             $testsFailed = $true
         }

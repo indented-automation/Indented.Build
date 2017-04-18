@@ -1,4 +1,5 @@
 using namespace System.IO
+using namespace System.Security.Principal
 
 [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssigments', '')]
 class BuildInfo {
@@ -37,6 +38,9 @@ class BuildInfo {
 
     # Acceptable code coverage threshold.
     [Double]$CodeCoverageThreshold = 0.9
+
+    # Whether or not the current user has an administrator token
+    [Boolean]$IsAdministrator = ([WindowsPrincipal][WindowsIdentity]::GetCurrent()).IsInRole([WindowsBuiltInRole]'Administrator')
 
     # Constructors
 
