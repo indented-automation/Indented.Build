@@ -1,7 +1,7 @@
 using namespace System.IO
 using namespace System.Security.Principal
 
-[System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssigments', '')]
+[System.Diagnostics.CodeAnalysis.SuppressMessage('PSUseDeclaredVarsMoreThanAssigments', '')]
 class BuildInfo {
     # The name of the module being built.
     [String]$ModuleName

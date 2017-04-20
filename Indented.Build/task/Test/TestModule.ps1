@@ -10,9 +10,17 @@ BuildTask TestModule -Stage Test -Properties @{
                 $buildInfo
             )
 
+            $path = Join-Path $buildInfo.Source 'test'
+
+            if (Test-Path (Join-Path $path 'stub')) {
+                Get-ChildItem (Join-Path $path 'stub') -Filter *.psm1 | ForEach-Object {
+                    Import-Module $_.FullName -Global -WarningAction SilentlyContinue
+                }
+            }
+
             Import-Module $buildInfo.ReleaseManifest -Global -ErrorAction Stop
             $params = @{
-                Script       = Join-Path $buildInfo.Source 'test'
+                Script       = $path
                 CodeCoverage = $buildInfo.ReleaseRootModule
                 OutputFile   = Join-Path $buildInfo.Output ('{0}.xml' -f $buildInfo.ModuleName)
                 PassThru     = $true

@@ -1,4 +1,4 @@
-[FlagsAttribute()]
+[Flags()]
 enum BuildType {
     Setup   = 1
     Build   = 2

@@ -23,49 +23,35 @@ BuildTask TestAttributeSyntax -Stage Build -Properties @{
                     $true
                 )
                 foreach ($attribute in $attributes) {
-                    if ($type = $attribute.TypeName.FullName -as [Type]) {
+                    if (($type = $attribute.TypeName.FullName -as [Type]) -or ($type = ('{0}Attribute' -f $attribute.TypeName.FullName) -as [Type])) {
                         $propertyNames = $type.GetProperties().Name
 
                         if ($attribute.NamedArguments.Count -gt 0) {
                             foreach ($argument in $attribute.NamedArguments) {
                                 if ($argument.ArgumentName -notin $propertyNames) {
-                                    $message = 'Invalid property name in attribute declaration: {0} at line {1}, character {2}' -f
+                                    'Invalid property name in attribute declaration: {0}: {1} at line {2}, character {3}' -f
+                                        $_.Name,
                                         $argument.ArgumentName,
                                         $argument.Extent.StartLineNumber,
                                         $argument.Extent.StartColumnNumber
-
-                                    $errorRecord = New-Object System.Management.Automation.ErrorRecord(
-                                        (New-Object ArgumentException $message),
-                                        'InvalidAttributeArgument',
-                                        'InvalidArgument',
-                                        $attribute
-                                    )
-
-                                    Write-Error -ErrorRecord $errorRecord
 
                                     $hasSyntaxErrors = $true
                                 }
                             }
                         }
                     } else {
-                        $message = 'Invalid attribute declaration: {0} at line {1}, character {2}' -f
+                        'Invalid attribute declaration: {0}: {1} at line {2}, character {3}' -f
+                            $_.Name,
                             $attribute.TypeName.FullName,
                             $attribute.Extent.StartLineNumber,
                             $attribute.Extent.StartColumnNumber
 
-                        $errorRecord = New-Object System.Management.Automation.ErrorRecord(
-                            (New-Object ArgumentException $message),
-                            'InvalidAttribute',
-                            'InvalidArgument',
-                            $attribute
-                        )
-
-                        Write-Error -ErrorRecord $errorRecord
+                        $hasSyntaxErrors = $true
                     }
                 }
             }
         if ($hasSyntaxErrors) {
-            throw 'TestSyntax failed'
+            throw 'TestAttributeSyntax failed'
         }
     }
 }

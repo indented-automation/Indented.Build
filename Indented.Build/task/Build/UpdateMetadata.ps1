@@ -35,8 +35,10 @@ BuildTask UpdateMetadata -Stage Build -Properties @{
             }
 
             # LicenseUri
-            if (Enable-Metadata $buildInfo.ReleaseManifest -PropertyName LicenseUri) {
-                Update-Metadata $buildInfo.ReleaseManifest -PropertyName LicenseUri -Value 'https://opensource.org/licenses/MIT'
+            if (Test-Path (Join-Path $buildInfo.ProjectRoot 'LICENSE')) {
+                if (Enable-Metadata $buildInfo.ReleaseManifest -PropertyName LicenseUri) {
+                    Update-Metadata $buildInfo.ReleaseManifest -PropertyName LicenseUri -Value 'https://opensource.org/licenses/MIT'
+                }
             }
 
             # ProjectUri

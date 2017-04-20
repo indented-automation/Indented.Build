@@ -4,7 +4,7 @@ function Write-Message {
     # .DESCRIPTION
     #   Writes a message to the console.
 
-    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage('PSAvoidUsingWriteHost', '')]
     [CmdletBinding()]
     [OutputType([Void])]
     param (
