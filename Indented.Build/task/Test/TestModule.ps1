@@ -27,7 +27,7 @@ BuildTask TestModule -Stage Test -Properties @{
             }
             Invoke-Pester @params
         }
-        if ($buildInfo.IsAdministrator) {
+        if ($buildInfo.IsAdministrator -and -not (Test-CIServer)) {
             $pester = Invoke-Command $invokePester -ArgumentList $buildInfo -ComputerName $env:COMPUTERNAME
         } else {
             $pester = & $invokePester $buildInfo
