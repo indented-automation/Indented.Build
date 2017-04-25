@@ -129,7 +129,7 @@ class BuildInfo {
         if (Test-Path $sourceManifest) {
             $manifestVersionString = Get-Metadata -Path $sourceManifest -PropertyName ModuleVersion
 
-            $manifestVersion = [Version]'0.0.0.0'
+            $manifestVersion = [Version]'0.0.0'
             if ([Version]::TryParse($manifestVersionString, [Ref]$manifestVersion)) {
                 return $this.IncrementVersion($manifestVersion)
             }
@@ -140,9 +140,9 @@ class BuildInfo {
 
     hidden [Version] IncrementVersion($version) {
         $ctorArgs = switch ($this.ReleaseType) {
-            'Major' { ($version.Major + 1), 0, 0, 0 }
-            'Minor' { $version.Major, ($version.Minor + 1), 0, 0 }
-            'Build' { $version.Major, $version.Minor, ($version.Build + 1), 0 }
+            'Major' { ($version.Major + 1), 0, 0 }
+            'Minor' { $version.Major, ($version.Minor + 1), 0 }
+            'Build' { $version.Major, $version.Minor, ($version.Build + 1) }
         }
         return New-Object Version($ctorArgs)
     }
