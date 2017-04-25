@@ -1,6 +1,6 @@
 os: WMF 5
 
-version: 2.15.{build}
+version: 2.16.{build}
 
 environment:
   NuGetApiKey:
