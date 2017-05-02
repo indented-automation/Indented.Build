@@ -3,7 +3,7 @@ BuildTask TestModuleImport -Stage Test -Properties @{
     Implementation = {
         $exceptionMessage = powershell.exe -NoProfile -Command "
             try {
-                Import-Module $($buildInfo.ReleaseManifest.FullName) -ErrorAction Stop
+                Import-Module '$($buildInfo.ReleaseManifest.FullName)' -ErrorAction Stop
 
                 exit 0
             } catch {

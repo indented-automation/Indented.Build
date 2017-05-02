@@ -4,8 +4,8 @@ BuildTask UpdateMarkdownHelp -Stage Build -Properties @{
     Implementation = {
         $exceptionMessage = powershell.exe -NoProfile -Command "
             try {
-                Import-Module $($buildInfo.ReleaseManifest.FullName) -ErrorAction Stop
-                New-MarkdownHelp -Module $($buildInfo.ModuleName) -OutputFolder '$($buildInfo.Source)\help' -Force
+                Import-Module '$($buildInfo.ReleaseManifest.FullName)' -ErrorAction Stop
+                New-MarkdownHelp -Module '$($buildInfo.ModuleName)' -OutputFolder '$($buildInfo.Source)\help' -Force
 
                 exit 0
             } catch {
