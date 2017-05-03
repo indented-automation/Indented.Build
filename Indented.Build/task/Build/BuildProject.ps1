@@ -1,29 +1,25 @@
-BuildTask BuildProject -Stage Build -Properties @{
-    Order          = 0
-    ValidWhen      = { (Test-Path (Join-Path $buildInfo.Source 'class\*.*proj')) -and -not (Test-Path (Join-Path $buildInfo.Source 'class\*.sln')) }
-    Implementation = {
-        Push-Location 'class'
-        
-        try {
-            $null = Get-Command msbuild
-            
-            Get-Item '*.*proj' | ForEach-Object {
-                $proj = [Xml](Get-Content $_.FullName)
-                if ($proj.Project.PropertyGroup.OutputType -eq 'winexe') {
-                    $outputPath = Join-Path $buildInfo.ModuleBase.FullName 'bin'
-                } else {
-                    $outputPath = Join-Path $buildInfo.ModuleBase.FullName 'lib'
-                }
-                if (-not (Test-Path $outputPath)) {
-                    $null = New-Item $outputPath -ItemType Directory -Force
-                }
+BuildTask BuildProject -Stage Build -Order 0 -If { (Test-Path 'class*\*.*proj') -and -not (Test-Path 'class*\*.sln') } -Definition {
+    try {
+        Push-Location (Resolve-Path 'class*').Path
 
-                msbuild /t:Clean /t:Build /p:OutputPath=$outputPath /p:DebugSymbols=false /p:DebugType=None $_.Name
+        $null = Get-Command msbuild
+        
+        Get-Item '*.*proj' | ForEach-Object {
+            $proj = [Xml](Get-Content $_.FullName)
+            if ($proj.Project.PropertyGroup.OutputType -eq 'winexe') {
+                $outputPath = Join-Path $buildInfo.Path.Package.FullName 'bin'
+            } else {
+                $outputPath = Join-Path $buildInfo.Path.Package.FullName 'lib'
             }
-        } catch {
-            throw
-        } finally {
-            Pop-Location
+            if (-not (Test-Path $outputPath)) {
+                $null = New-Item $outputPath -ItemType Directory -Force
+            }
+
+            msbuild /t:Clean /t:Build /p:OutputPath=$outputPath /p:DebugSymbols=false /p:DebugType=None $_.Name
         }
+    } catch {
+        throw
+    } finally {
+        Pop-Location
     }
 }

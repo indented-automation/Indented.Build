@@ -1,8 +1,10 @@
 function Write-Message {
-    # .SYNOPSIS
-    #   Writes a message to the console.
-    # .DESCRIPTION
-    #   Writes a message to the console.
+    <#
+    .SYNOPSIS
+        Write a message to the console.
+    .DESCRIPTION
+        Write a message to the console.
+    #>
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage('PSAvoidUsingWriteHost', '')]
     [CmdletBinding()]

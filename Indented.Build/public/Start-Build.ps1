@@ -1,33 +1,44 @@
-function Start-Build {
+filter Start-Build {
+    <#
+    .SYNOPSIS
+        Start a build.
+    .DESCRIPTION
+        Start a build using the built-in task executor.
+    #>
+
     [CmdletBinding()]
-    [OutputType([PSObject])]
+    [OutputType('TaskInfo')]
     param (
+        # The task categories to execute.
         [BuildType]$BuildType = 'Setup, Build, Test',
 
-        [ValidateSet('Build', 'Minor', 'Major')]
+        # The release type to create.
         [ReleaseType]$ReleaseType = 'Build',
 
+        [Parameter(ValueFromPipeline = $true)]
+        [PSTypeName('BuildInfo')]
+        [PSObject]$BuildInfo = (Get-BuildInfo -BuildType $BuildType -ReleaseType $ReleaseType),
+
+        # Return task information as an object.
         [Switch]$PassThru,
 
+        # Suppress informational output.
         [Switch]$Quiet
     )
 
     try {
-        $null = $psboundparameters.Remove('PassThru')
-        $null = $psboundparameters.Remove('Quiet')
-        $buildInfo = Get-BuildInfo @psboundparameters
-
         $progressParams = @{
-            Activity = 'Building {0} ({1})' -f $buildInfo.ModuleName, $buildInfo.Version
+            Activity = 'Building {0} ({1})' -f $BuildInfo.ModuleName, $BuildInfo.Version
             Id       = 1
         }
         Write-Progress @progressParams
 
-        Write-Message ('Building {0} ({1})' -f $buildInfo.ModuleName, $buildInfo.Version) -Quiet:$Quiet.ToBool() -WithPadding
+        Write-Message ('Building {0} ({1})' -f $BuildInfo.ModuleName, $BuildInfo.Version) -Quiet:$Quiet.ToBool() -WithPadding
         
-        foreach ($task in $buildInfo.BuildTask) {
+        $BuildInfo | Get-BuildTask | ForEach-Object {
             $taskInfo = New-Object PSObject
-            Invoke-BuildTask $task -BuildInfo $BuildInfo -TaskInfo ([Ref]$taskInfo)
+            
+            $_ | Invoke-BuildTask -BuildInfo $BuildInfo -TaskInfo ([Ref]$taskInfo)
 
             if ($PassThru) {
                 $taskInfo
@@ -47,6 +58,6 @@ function Start-Build {
         $lastexitcode = 1
 
         # Catches unexpected errors, rethrows errors raised while executing steps.
-        throw
+        Write-Error -ErrorRecord $_
     }
 }

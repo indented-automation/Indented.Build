@@ -1,37 +1,30 @@
-﻿BuildTask UpdateAppVeyorYml -Stage Setup -Properties @{
-    Order          = 0
-    ValidWhen      = {
-        $appVeyorYml = Join-Path $buildInfo.ProjectRoot 'appveyor.yml'
-        (Test-Path $appVeyorYml) -and (Get-Item $appVeyorYml).Size -gt 0 
-    }
-    Implementation = {
-        $path = Join-Path $buildInfo.ProjectRoot 'appveyor.yml'
-        $content = 'os: WMF 5',
-                   '',
-                   'version: 1.0.{build}.0',
-                   '',
-                   'environment:',
-                   '  NuGetApiKey:',
-                   '    secure: kp9PPkiJ/iiPfX0b1m/NYh88GLaok3NlJc1XAr6rWH+umpCiZVwvsK9CVfMNYElL',
-                   '',
-                   'skip_commits:',
-                   '  message: /updated? readme.*s/',
-                   '',
-                   'build: false',
-                   '',
-                   'install:',
-                   '  - ps: |',
-                   '      $null = Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force',
-                   '      Set-PSRepository -Name PSGallery -InstallationPolicy Trusted',
-                   '      Install-Module Configuration, Pester, Indented.Build',
-                   '      Set-Location $env:APPVEYOR_BUILD_FOLDER\$env:APPVEYOR_PROJECT_NAME',
-                   '      Get-BuildInfo -BuildType Build',
-                   '',
-                   'build_script:',
-                   '  - ps: Start-Build -BuildType Build',
-                   '',
-                   'test_script:',
-                   '  - ps: Start-Build -BuildType Test'
-        Set-Content $path -Value $content
-    }
+﻿BuildTask UpdateAppVeyorYml -Stage Setup -Order 0 -If { $appVeyorYml = Join-Path $buildInfo.Path.ProjectRoot 'appveyor.yml'; (Test-Path $appVeyorYml) -and (Get-Item $appVeyorYml).Size -gt 0 } -Definition {
+    $path = Join-Path $buildInfo.ProjectRoot 'appveyor.yml'
+    $content = 'os: WMF 5',
+                '',
+                'version: 1.0.{build}',
+                '',
+                'environment:',
+                '  NuGetApiKey:',
+                '    secure: kp9PPkiJ/iiPfX0b1m/NYh88GLaok3NlJc1XAr6rWH+umpCiZVwvsK9CVfMNYElL',
+                '',
+                'skip_commits:',
+                '  message: /updated? readme.*s/',
+                '',
+                'build: false',
+                '',
+                'install:',
+                '  - ps: |',
+                '      $null = Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force',
+                '      Set-PSRepository -Name PSGallery -InstallationPolicy Trusted',
+                '      Install-Module Configuration, Pester, Indented.Build',
+                '      Set-Location $env:APPVEYOR_BUILD_FOLDER\$env:APPVEYOR_PROJECT_NAME',
+                '      Get-BuildInfo -BuildType Build',
+                '',
+                'build_script:',
+                '  - ps: Start-Build -BuildType Build',
+                '',
+                'test_script:',
+                '  - ps: Start-Build -BuildType Test'
+    Set-Content $path -Value $content
 }

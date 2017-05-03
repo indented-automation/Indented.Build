@@ -1,56 +1,56 @@
-BuildTask UpdateMetadata -Stage Build -Properties @{
-    Implementation = {
-        try {
-            # Version
-            Update-Metadata $buildInfo.ReleaseManifest -PropertyName ModuleVersion -Value $buildInfo.Version
-            
-            # RootModule
-            if (Enable-Metadata $buildInfo.ReleaseManifest -PropertyName RootModule) {
-                Update-Metadata $buildInfo.ReleaseManifest -PropertyName RootModule -Value $buildInfo.ReleaseRootModule.Name
-            }
+BuildTask UpdateMetadata -Stage Build -Definition {
+    try {
+        $path = $buildInfo.Path.Manifest
 
-            # FunctionsToExport
-            if (Enable-Metadata $buildInfo.ReleaseManifest -PropertyName FunctionsToExport) {
-                Update-Metadata $buildInfo.ReleaseManifest -PropertyName FunctionsToExport -Value (
-                    (Get-ChildItem (Join-Path $buildInfo.Source 'public') -Filter '*.ps1' -File -Recurse).BaseName
+        # Version
+        Update-Metadata $path -PropertyName ModuleVersion -Value $buildInfo.Version
+        
+        # RootModule
+        if (Enable-Metadata $path -PropertyName RootModule) {
+            Update-Metadata $path -PropertyName RootModule -Value $buildInfo.Path.RootModule.Name
+        }
+
+        # FunctionsToExport
+        if (Enable-Metadata $path -PropertyName FunctionsToExport) {
+            Update-Metadata $path -PropertyName FunctionsToExport -Value (
+                (Get-ChildItem (Join-Path $buildInfo.Path.Source 'pub*') -Filter '*.ps1' -File -Recurse).BaseName
+            )
+        }
+
+        # RequiredAssemblies
+        if (Test-Path (Join-Path $buildInfo.Path.Package 'lib\*.dll')) {
+            if (Enable-Metadata $path -PropertyName RequiredAssemblies) {
+                Update-Metadata $path -PropertyName RequiredAssemblies -Value (
+                    (Get-Item (Join-Path $buildInfo.Path.Package 'lib\*.dll')).Name | ForEach-Object {
+                        Join-Path 'lib' $_
+                    }
                 )
             }
-
-            # RequiredAssemblies
-            if (Test-Path (Join-Path $buildInfo.Package 'lib\*.dll')) {
-                if (Enable-Metadata $buildInfo.ReleaseManifest -PropertyName RequiredAssemblies) {
-                    Update-Metadata $buildInfo.ReleaseManifest -PropertyName RequiredAssemblies -Value (
-                        (Get-Item (Join-Path $buildInfo.Package 'lib\*.dll')).Name | ForEach-Object {
-                            Join-Path 'lib' $_
-                        }
-                    )
-                }
-            }
-
-            # FormatsToProcess
-            if (Test-Path (Join-Path $buildInfo.Package '*.Format.ps1xml')) {
-                if (Enable-Metadata $buildInfo.ReleaseManifest -PropertyName FormatsToProcess) {
-                    Update-Metadata $buildInfo.ReleaseManifest -PropertyName FormatsToProcess -Value (Get-Item (Join-Path $buildInfo.Package '*.Format.ps1xml')).Name
-                }
-            }
-
-            # LicenseUri
-            if (Test-Path (Join-Path $buildInfo.ProjectRoot 'LICENSE')) {
-                if (Enable-Metadata $buildInfo.ReleaseManifest -PropertyName LicenseUri) {
-                    Update-Metadata $buildInfo.ReleaseManifest -PropertyName LicenseUri -Value 'https://opensource.org/licenses/MIT'
-                }
-            }
-
-            # ProjectUri
-            if (Enable-Metadata $buildInfo.ReleaseManifest -PropertyName ProjectUri) {
-                # Attempt to parse the project URI from the list of upstream repositories
-                [String]$pushOrigin = (git remote -v) -like 'origin*(push)'
-                if ($pushOrigin -match 'origin\s+(?<ProjectUri>\S+).git') {
-                    Update-Metadata $buildInfo.ReleaseManifest -PropertyName ProjectUri -Value $matches.ProjectUri
-                }
-            }
-        } catch {
-            throw
         }
+
+        # FormatsToProcess
+        if (Test-Path (Join-Path $buildInfo.Path.Package '*.Format.ps1xml')) {
+            if (Enable-Metadata $path -PropertyName FormatsToProcess) {
+                Update-Metadata $path -PropertyName FormatsToProcess -Value (Get-Item (Join-Path $buildInfo.Path.Package '*.Format.ps1xml')).Name
+            }
+        }
+
+        # LicenseUri
+        if (Test-Path (Join-Path $buildInfo.Path.ProjectRoot 'LICENSE')) {
+            if (Enable-Metadata $path -PropertyName LicenseUri) {
+                Update-Metadata $path -PropertyName LicenseUri -Value 'https://opensource.org/licenses/MIT'
+            }
+        }
+
+        # ProjectUri
+        if (Enable-Metadata $path -PropertyName ProjectUri) {
+            # Attempt to parse the project URI from the list of upstream repositories
+            [String]$pushOrigin = (git remote -v) -like 'origin*(push)'
+            if ($pushOrigin -match 'origin\s+(?<ProjectUri>\S+).git') {
+                Update-Metadata $path -PropertyName ProjectUri -Value $matches.ProjectUri
+            }
+        }
+    } catch {
+        throw
     }
 }

@@ -1,7 +1,3 @@
-BuildTask SignModule -Stage Release -Properties @{
-    Order          = 1
-    ValidWhen      = { $null -ne $env:CodeSigningCertificate }
-    Implementation = {
-        Set-AuthenticodeSignature '...'
-    }
+BuildTask SignModule -Stage Release -Order 1 -If { $null -ne $env:CodeSigningCertificate } -Definition {
+    Set-AuthenticodeSignature '...'
 }

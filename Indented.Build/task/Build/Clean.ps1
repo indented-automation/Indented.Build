@@ -1,19 +1,16 @@
-BuildTask Clean -Stage Build -Properties @{
-    Order          = 0
-    Implementation = {
-        if (Get-Module $buildInfo.ModuleName) {
-            Remove-Module $buildInfo.ModuleName
-        }
-
-        Get-ChildItem $buildInfo.Package.Parent.FullName -Directory -ErrorAction SilentlyContinue |
-            Where-Object { [Version]::TryParse($_.Name, [Ref]$null) } |
-            Remove-Item -Recurse -Force
-
-        if (Test-Path $buildInfo.Output) {
-            Remove-Item $buildInfo.Output -Recurse -Force
-        }
-
-        $null = New-Item $buildInfo.Output -ItemType Directory -Force
-        $null = New-Item $buildInfo.Package -ItemType Directory -Force
+BuildTask Clean -Stage Build -Order 0 -Definition {
+    if (Get-Module $buildInfo.ModuleName) {
+        Remove-Module $buildInfo.ModuleName
     }
+
+    Get-ChildItem $buildInfo.Path.Package.Parent.FullName -Directory -ErrorAction SilentlyContinue |
+        Where-Object { [Version]::TryParse($_.Name, [Ref]$null) } |
+        Remove-Item -Recurse -Force
+
+    if (Test-Path $buildInfo.Path.Output) {
+        Remove-Item $buildInfo.Path.Output -Recurse -Force
+    }
+
+    $null = New-Item $buildInfo.Path.Output -ItemType Directory -Force
+    $null = New-Item $buildInfo.Path.Package -ItemType Directory -Force
 }

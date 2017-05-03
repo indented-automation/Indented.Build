@@ -1,69 +1,69 @@
-using namespace System.Diagnostics
+filter Invoke-BuildTask {
+    <#
+    .SYNOPSIS
+        Invoke a build step.
+    .DESCRIPTION
+        An output display wrapper to show progress through a build.
+    .NOTES
+        Change log:
+            01/02/2017 - Chris Dent - Added help.
+    #>
 
-function Invoke-BuildTask {
-    # .SYNOPSIS
-    #   Invoke a build step.
-    # .DESCRIPTION
-    #   An output display wrapper to show progress through a build.
-    # .INPUTS
-    #   System.String
-    # .OUTPUTS
-    #   System.Object
-    # .NOTES
-    #   Change log:
-    #     01/02/2017 - Chris Dent - Added help.
-    
     [CmdletBinding()]
     [OutputType([PSObject])]
     param (
-        [Parameter(ValueFromPipeline = $true)]
-        [BuildTask]$BuildTask,
+        # The task to invoke.
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [PSTypeName('BuildTask')]
+        [PSObject]$BuildTask,
 
-        [BuildInfo]$BuildInfo,
+        # Task execution context information.
+        [Parameter(Mandatory = $true)]
+        [PSTypeName('BuildInfo')]
+        [PSObject]$BuildInfo,
         
-        [Ref]$TaskInfo
+        # A reference to a PSObject which is used to return detailed execution information as an object.
+        [Parameter(Mandatory = $true)]
+        [Ref]$TaskInfo,
+
+        # Suppress informational messages.
+        [Switch]$Quiet
     )
 
-    begin {
-        $stopWatch = New-Object StopWatch
+    $progressParams = @{
+        Activity = 'Executing {0}' -f $BuildTask.Name
+        Id       = 2
+        ParentId = 1
     }
+    Write-Progress @progressParams
+
+    $TaskInfo.Value = [PSCustomObject]@{
+        Name      = $BuildTask.Name
+        Result    = 'Success'
+        StartTime = (Get-Date)
+        TimeTaken = $null
+        Errors    = $null
+    }
+    $messageColour = 'Green'
     
-    process {
-        $progressParams = @{
-            Activity = 'Executing {0}' -f $BuildTask.Name
-            Id       = 2
-            ParentId = 1
-        }
-        Write-Progress @progressParams
+    $stopwatch = New-Object System.Diagnostics.Stopwatch
+    $stopwatch.Start()
 
-        $TaskInfo.Value = [PSCustomObject]@{
-            Name      = $BuildTask.Name
-            Result    = 'Success'
-            StartTime = [DateTime]::Now
-            TimeTaken = $null
-            Errors    = $null
-        }
-        $messageColour = 'Green'
-        
-        $stopWatch = New-Object System.Diagnostics.StopWatch
-        $stopWatch.Start()
+    try {
+        & $BuildTask.Definition
+    } catch {
+        $TaskInfo.Value.Result = 'Failed'
+        $TaskInfo.Value.Errors = $_
+        $messageColour = 'Red'
+    }
 
-        try {
-            & $BuildTask.Implementation
-        } catch {
-            $TaskInfo.Value.Result = 'Failed'
-            $TaskInfo.Value.Errors = $_
-            $messageColour = 'Red'
-        }
+    $stopwatch.Stop()
+    $TaskInfo.Value.TimeTaken = $stopwatch.Elapsed
 
-        $stopWatch.Stop()
-        $TaskInfo.Value.TimeTaken = $stopWatch.Elapsed
-
-        if (-not $Quiet) {
-            Write-Message $BuildTask.Name.PadRight(30) -ForegroundColor Cyan -NoNewline
-            Write-Message -ForegroundColor $messageColour -Object $taskInfo.Value.Result.PadRight(10) -NoNewline
-            Write-Message $taskInfo.Value.StartTime.ToString('t').PadRight(10) -ForegroundColor Gray -NoNewLine
-            Write-Message $taskInfo.Value.TimeTaken -ForegroundColor Gray
-        }
+    if (-not $Quiet) {
+        Write-Message $BuildTask.Name.PadRight(30) -ForegroundColor Cyan -NoNewline
+        Write-Message -ForegroundColor $messageColour -Object $taskInfo.Value.Result.PadRight(10) -NoNewline
+        Write-Message $taskInfo.Value.StartTime.ToString('t').PadRight(10) -ForegroundColor Gray -NoNewLine
+        Write-Message $taskInfo.Value.TimeTaken -ForegroundColor Gray
     }
 }

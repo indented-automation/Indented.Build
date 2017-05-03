@@ -19,11 +19,11 @@ function UpdateVersion {
     )
 
     process {
-        $arguments = switch ($this.ReleaseType) {
-            'Major' { ($version.Major + 1), 0, 0 }
-            'Minor' { $version.Major, ($version.Minor + 1), 0 }
-            'Build' { $version.Major, $version.Minor, ($version.Build + 1) }
+        $arguments = switch ($ReleaseType) {
+            'Major' { ($Version.Major + 1), 0, 0 }
+            'Minor' { $Version.Major, ($Version.Minor + 1), 0 }
+            'Build' { $Version.Major, $Version.Minor, ($Version.Build + 1) }
         }
         return New-Object Version($arguments)
-    }    
+    }
 }

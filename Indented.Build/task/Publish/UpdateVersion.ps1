@@ -1,6 +1,3 @@
-BuildTask UpdateVersion -Stage Publish -Properties @{
-    Order          = 0
-    Implementation = {
-        Update-Metadata (Join-Path $buildInfo.Source $buildInfo.ReleaseManifest.Name) -PropertyName ModuleVersion -Value $buildInfo.Version
-    }
+BuildTask UpdateVersion -Stage Publish -Order 0 -Definition {
+    Update-Metadata $buildInfo.Path.Manifest.Name -PropertyName ModuleVersion -Value $buildInfo.Version
 }

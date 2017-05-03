@@ -36,8 +36,20 @@ function Get-BuildTask {
     }
 
     process {
+        if ($buildInfo) {
+            Push-Location $buildInfo.Path.Source
+        }
+
         Get-ChildItem $path -File -Filter $Name -Recurse | ForEach-Object {
-            . $_.FullName | Where-Object { $ListAvailable -or (& $_.If) }
+            try {
+                . $_.FullName | Where-Object { $ListAvailable -or (& $_.If) }
+            } catch {
+                Write-Error -Message ('Failed to evaluate task condition: {0}' -f $_.Exception.Message) -ErrorId 'ConditionEvaluationFailed'
+            }
+        }
+
+        if ($buildInfo) {
+            Pop-Location
         }
     }
 }

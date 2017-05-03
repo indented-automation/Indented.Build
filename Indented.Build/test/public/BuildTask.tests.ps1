@@ -1,26 +1,20 @@
 InModuleScope Indented.Build {
     Describe BuildTask {
-        Mock New-Object { 
-            @{}
+        It 'Object: TypeName: Is BuildTask' {
+            $buildTask = BuildTask -Name 'name' -Stage 'Build' -Definition { }
+            $buildTask.PSObject.TypeNames -contains 'BuildTask' | Should -Be $true
         }
 
-        Context 'Default' {
-            BeforeEach {
-                $task = BuildTask -Name 'SomeTask' -Stage 'Build' -Properties @{
-                    Order          = 0
-                    Implementation = { }
-                }
-            }
+        It 'Object: Has default values: When using mandatory parameters only' {
+            $buildTask = BuildTask -Name 'name' -Stage 'Build' -Definition { }
+            $buildTask.Order | Should -Be 1024
+            & $buildTask.If | Should -Be $true
+        }
 
-            It 'Creates new instances of BuildTask' {
-                Assert-MockCalled New-Object -Times 1 -Scope It
-                $task | Should -Not -BeNullOrEmpty
-            }
-
-            It 'Adds properties to the build task' {
-                $task.Order | Should -Be 0
-                $task.Implementation | Should -BeOfType [ScriptBlock]
-            }
+        It 'Object: Accepts values from parameters: When parameter arguments are given' {
+            $buildTask = BuildTask -Name 'name' -Stage 'Build' -Order 0 -If { $false } -Definition { }
+            $buildTask.Order | Should -Be 0
+            & $buildTask.If | Should -Be $false
         }
     }
 }

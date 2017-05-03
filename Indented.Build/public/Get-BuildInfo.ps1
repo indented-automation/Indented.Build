@@ -17,18 +17,20 @@ function Get-BuildInfo {
     [OutputType('BuildInfo')]
     param (
         # The tasks to execute. By default the tasks Setup, Build, and Test are executed.
-        [String[]]$BuildType = ('Setup', 'Build', 'Test'),
+        [BuildType]$BuildType = 'Setup, Build, Test',
 
         # The release type. By default the release type is Build and the build version will increment.
         #
         # If the last commit message includes the phrase "major release" the release type will be reset to Major; If the last commit meessage includes "release" the releasetype will be reset to Minor.
-        [ValidateSet('Build', 'Minor', 'Major')]
-        [String]$ReleaseType = 'Build',
+        [ReleaseType]$ReleaseType = 'Build',
 
+        [ValidateScript( { Test-Path $_ -PathType Container } )]
         [String]$Path = $pwd.Path
     )
 
     try {
+        $Path = $pscmdlet.GetUnresolvedProviderPathFromPSPath($Path)
+
         Push-Location $Path
 
         $buildInfo = [PSCustomObject]@{
@@ -40,11 +42,11 @@ function Get-BuildInfo {
             CodeCoverageThreshold = 0.9
             IsAdministrator       = ([WindowsPrincipal][WindowsIdentity]::GetCurrent()).IsInRole([WindowsBuiltInRole]'Administrator')
             Repository            = [PSCustomObject]@{
-                Branch                = GetBranchName
+                Branch                = (Get-GitBranch).Branch
                 LastCommitMessage     = GetLastCommitMessage
             }
             Path                  = [PSCustomObject]@{
-                ProjectRoot           = $projectRoot = GetProjectRoot
+                ProjectRoot           = $projectRoot = [System.IO.DirectoryInfo](Split-Path (Get-GitRootFolder) -Parent)
                 Source                = GetSourcePath $projectRoot
                 SourceManifest        = ''
                 Package               = ''

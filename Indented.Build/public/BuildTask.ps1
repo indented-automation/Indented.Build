@@ -6,6 +6,7 @@ function BuildTask {
         A build task is a predefined task used to build well-structured PowerShell projects.
     #>
 
+    [CmdletBinding()]
     [OutputType('BuildTask')]
     param (
         # The name of the task.
@@ -15,30 +16,24 @@ function BuildTask {
         # The stage during which the task will be invoked.
         [Parameter(Mandatory = $true)]
         [ValidateSet('Setup', 'Build', 'Test', 'Release', 'Publish')]
-        [BuildType]$Stage,
+        [String]$Stage,
 
-        # Properties which define the task. The implementation property is mandatory.
-        [Hashtable]$Properties,
+        # Where the task should appear in the build order respective to the stage.
+        [Int32]$Order = 1024,
+
+        # The task will only be invoked if the filter condition is true.
+        [ScriptBlock]$If = { $true },
 
         # The task implementation.
         [Parameter(Mandatory = $true)]
-        [ScriptBlock]$Implementation
+        [ScriptBlock]$Definition
     )
 
-    $buildTask = [PSCustomObject]@{
-        Name           = $Name
-        Stage          = $Stage
-        If             = { $true }
-        Order          = 1024
-        Implementation = $Implementation
-    } | Add-Type -MemberName 'BuildTask' -PassThru
-
-    if ($Properties.Contains('If')) {
-        $buildTask.If = $Properties.If
-    }
-    if ($Properties.Contains('Order')) {
-        $buildTask.Order = $Properties.Order
-    }
-
-    return $buildTask
+    [PSCustomObject]@{
+        Name       = $Name
+        Stage      = $Stage
+        If         = $If
+        Order      = $Order
+        Definition = $Definition
+    } | Add-Member -TypeName 'BuildTask' -PassThru
 }
