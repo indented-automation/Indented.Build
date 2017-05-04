@@ -1,3 +1,5 @@
+using namespace System.Diagnostics
+
 filter Invoke-BuildTask {
     <#
     .SYNOPSIS
@@ -46,7 +48,7 @@ filter Invoke-BuildTask {
     }
     $messageColour = 'Green'
     
-    $stopwatch = New-Object System.Diagnostics.Stopwatch
+    $stopwatch = New-Object Stopwatch
     $stopwatch.Start()
 
     try {

@@ -28,11 +28,7 @@ function Get-BuildTask {
         if (-not $Name.EndsWith('.ps1') -and -not $Name.EndsWith('*')) {
             $Name += '.ps1'
         }
-        if ((Split-Path $psscriptroot -Leaf) -eq 'public') {
-            $path = Join-Path $psscriptroot '..\task'
-        } else {
-            $path = Join-Path $psscriptroot 'task'
-        }
+        $path = Join-Path $psscriptroot 'task'
     }
 
     process {
