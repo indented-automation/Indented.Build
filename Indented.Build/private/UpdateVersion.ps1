@@ -1,12 +1,4 @@
 function UpdateVersion {
-    <#
-    .SYNOPSIS
-        Generate a new version number.
-    .DESCRIPTION
-        Generate a new version number according to the release type.
-    #>
-
-    [CmdletBinding()]
     [OutputType([Version])]
     param (
         # The release type.
@@ -24,6 +16,6 @@ function UpdateVersion {
             'Minor' { $Version.Major, ($Version.Minor + 1), 0 }
             'Build' { $Version.Major, $Version.Minor, ($Version.Build + 1) }
         }
-        return New-Object Version($arguments)
+        New-Object Version($arguments)
     }
 }

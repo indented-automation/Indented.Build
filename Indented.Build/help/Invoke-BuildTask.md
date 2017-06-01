@@ -12,7 +12,7 @@ Invoke a build step.
 ## SYNTAX
 
 ```
-Invoke-BuildTask [[-BuildTask] <BuildTask>] [[-BuildInfo] <BuildInfo>] [[-TaskInfo] <PSReference>]
+Invoke-BuildTask [-BuildTask] <PSObject> [-BuildInfo] <PSObject> [-TaskInfo] <PSReference> [-Quiet]
 ```
 
 ## DESCRIPTION
@@ -30,14 +30,14 @@ PS C:\> {{ Add example code here }}
 ## PARAMETERS
 
 ### -BuildTask
-{{Fill BuildTask Description}}
+The task to invoke.
 
 ```yaml
-Type: BuildTask
+Type: PSObject
 Parameter Sets: (All)
 Aliases: 
 
-Required: False
+Required: True
 Position: 1
 Default value: None
 Accept pipeline input: True (ByValue)
@@ -45,14 +45,14 @@ Accept wildcard characters: False
 ```
 
 ### -BuildInfo
-{{Fill BuildInfo Description}}
+Task execution context information.
 
 ```yaml
-Type: BuildInfo
+Type: PSObject
 Parameter Sets: (All)
 Aliases: 
 
-Required: False
+Required: True
 Position: 2
 Default value: None
 Accept pipeline input: False
@@ -60,31 +60,44 @@ Accept wildcard characters: False
 ```
 
 ### -TaskInfo
-{{Fill TaskInfo Description}}
+A reference to a PSObject which is used to return detailed execution information as an object.
 
 ```yaml
 Type: PSReference
 Parameter Sets: (All)
 Aliases: 
 
-Required: False
+Required: True
 Position: 3
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-## INPUTS
+### -Quiet
+Suppress informational messages.
 
-### System.String
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: 
+
+Required: False
+Position: Named
+Default value: False
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+## INPUTS
 
 ## OUTPUTS
 
-### System.Object
+### System.Management.Automation.PSObject
 
 ## NOTES
 Change log:
-  01/02/2017 - Chris Dent - Added help.
+    01/02/2017 - Chris Dent - Added help.
 
 ## RELATED LINKS
 

@@ -7,16 +7,24 @@ schema: 2.0.0
 # Get-BuildTask
 
 ## SYNOPSIS
-{{Fill in the Synopsis}}
+Get build tasks.
 
 ## SYNTAX
 
+### ForBuild (Default)
 ```
-Get-BuildTask [[-Name] <Object>]
+Get-BuildTask [-BuildInfo] <PSObject> [-Name <String>]
+```
+
+### List
+```
+Get-BuildTask [-Name <String>] [-ListAvailable]
 ```
 
 ## DESCRIPTION
-{{Fill in the Description}}
+Get the build tasks deemed to be applicable to this build.
+
+If the ListAvailable parameter is supplied, all available tasks will be returned.
 
 ## EXAMPLES
 
@@ -29,30 +37,56 @@ PS C:\> {{ Add example code here }}
 
 ## PARAMETERS
 
-### -Name
-{{Fill Name Description}}
+### -BuildInfo
+A build information object used to determine which tasks will apply to the current build.
 
 ```yaml
-Type: Object
+Type: PSObject
+Parameter Sets: ForBuild
+Aliases: 
+
+Required: True
+Position: 2
+Default value: None
+Accept pipeline input: True (ByValue)
+Accept wildcard characters: False
+```
+
+### -Name
+Filter tasks by task name.
+
+```yaml
+Type: String
 Parameter Sets: (All)
 Aliases: 
 
 Required: False
-Position: 0
-Default value: None
+Position: Named
+Default value: *
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -ListAvailable
+List all available tasks, irrespective of conditions applied to the task.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: List
+Aliases: 
+
+Required: True
+Position: Named
+Default value: False
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
 ## INPUTS
 
-### None
-
-
 ## OUTPUTS
 
 ### BuildTask
-
 
 ## NOTES
 

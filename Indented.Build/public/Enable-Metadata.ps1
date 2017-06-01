@@ -1,6 +1,3 @@
-using namespace System.Management.Automation
-using namespace System.Management.Automation.Language
-
 filter Enable-Metadata {
     <#
      .SYNOPSIS
@@ -33,7 +30,7 @@ filter Enable-Metadata {
     $shouldEnable = $false
     try {
         $null = Get-Metadata @psboundparameters -ErrorAction Stop
-    } catch [ItemNotFoundException] {
+    } catch [System.Management.Automation.ItemNotFoundException] {
         # The function will only execute where the requested value is not present
         $shouldEnable = $true
     } catch {
@@ -49,7 +46,7 @@ filter Enable-Metadata {
     $manifestContent = Get-Content $Path -Raw
 
     $tokens = $parseErrors = $null
-    $ast = [Parser]::ParseInput(
+    $ast = [System.Management.Automation.Language.Parser]::ParseInput(
         $manifestContent,
         $Path,
         [Ref]$tokens,

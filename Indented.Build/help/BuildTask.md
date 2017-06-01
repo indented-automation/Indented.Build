@@ -7,16 +7,17 @@ schema: 2.0.0
 # BuildTask
 
 ## SYNOPSIS
-{{Fill in the Synopsis}}
+Create a build task object.
 
 ## SYNTAX
 
 ```
-BuildTask [-Name] <String> [-Stage] <BuildType> [-Properties] <Hashtable>
+BuildTask [-Name] <String> [-Stage] <String> [[-Order] <Int32>] [[-If] <ScriptBlock>]
+ [-Definition] <ScriptBlock>
 ```
 
 ## DESCRIPTION
-{{Fill in the Description}}
+A build task is a predefined task used to build well-structured PowerShell projects.
 
 ## EXAMPLES
 
@@ -30,7 +31,7 @@ PS C:\> {{ Add example code here }}
 ## PARAMETERS
 
 ### -Name
-{{Fill Name Description}}
+The name of the task.
 
 ```yaml
 Type: String
@@ -38,17 +39,17 @@ Parameter Sets: (All)
 Aliases: 
 
 Required: True
-Position: 0
+Position: 1
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Properties
-{{Fill Properties Description}}
+### -Stage
+The stage during which the task will be invoked.
 
 ```yaml
-Type: Hashtable
+Type: String
 Parameter Sets: (All)
 Aliases: 
 
@@ -59,17 +60,46 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Stage
-{{Fill Stage Description}}
+### -Order
+Where the task should appear in the build order respective to the stage.
 
 ```yaml
-Type: BuildType
+Type: Int32
 Parameter Sets: (All)
 Aliases: 
-Accepted values: Setup, Build, Test, Release, Publish
+
+Required: False
+Position: 3
+Default value: 1024
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -If
+The task will only be invoked if the filter condition is true.
+
+```yaml
+Type: ScriptBlock
+Parameter Sets: (All)
+Aliases: 
+
+Required: False
+Position: 4
+Default value: { $true }
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Definition
+The task implementation.
+
+```yaml
+Type: ScriptBlock
+Parameter Sets: (All)
+Aliases: 
 
 Required: True
-Position: 1
+Position: 5
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
@@ -77,13 +107,9 @@ Accept wildcard characters: False
 
 ## INPUTS
 
-### None
-
-
 ## OUTPUTS
 
 ### BuildTask
-
 
 ## NOTES
 

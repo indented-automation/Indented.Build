@@ -1,11 +1,4 @@
 function GetVersion {
-    <#
-    .SYNOPSIS
-        Get the current module version.
-    .DESCRIPTION
-        Get the current module version.
-    #>
-
     [OutputType([Version])]
     param (
         # The path to the a module manifest file.
@@ -13,7 +6,6 @@ function GetVersion {
         [String]$Path
     )
 
-    # Fall back on version numbers in the manifest.
     if (Test-Path $Path) {
         $versionString = Get-Metadata -Path $Path -PropertyName ModuleVersion
 

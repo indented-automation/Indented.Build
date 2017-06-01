@@ -1,6 +1,3 @@
-using namespace System.IO
-using namespace System.Security.Principal
-
 function Get-BuildInfo {
     <#
     .SYNOPSIS
@@ -16,14 +13,16 @@ function Get-BuildInfo {
     [CmdletBinding()]
     [OutputType('BuildInfo')]
     param (
-        # The tasks to execute. By default the tasks Setup, Build, and Test are executed.
-        [BuildType]$BuildType = 'Setup, Build, Test',
+        # The tasks to execute, passed to Invoke-Build. BuildType is expected to be a broad description of the build, encompassing a set of tasks. 
+        [String[]]$BuildType = @('Setup', 'Build', 'Test'),
 
         # The release type. By default the release type is Build and the build version will increment.
         #
         # If the last commit message includes the phrase "major release" the release type will be reset to Major; If the last commit meessage includes "release" the releasetype will be reset to Minor.
-        [ReleaseType]$ReleaseType = 'Build',
+        [ValidateSet('Build', 'Minor', 'Major')]
+        [String]$ReleaseType = 'Build',
 
+        # Generate build informatio for the specified path.
         [ValidateScript( { Test-Path $_ -PathType Container } )]
         [String]$Path = $pwd.Path
     )
@@ -40,23 +39,23 @@ function Get-BuildInfo {
             BuildSystem           = GetBuildSystem
             Version               = '1.0.0'
             CodeCoverageThreshold = 0.9
-            IsAdministrator       = ([WindowsPrincipal][WindowsIdentity]::GetCurrent()).IsInRole([WindowsBuiltInRole]'Administrator')
+            IsAdministrator       = TestAdministrator
             Repository            = [PSCustomObject]@{
                 Branch                = (Get-GitBranch).Branch
                 LastCommitMessage     = GetLastCommitMessage
             }
             Path                  = [PSCustomObject]@{
-                ProjectRoot           = $projectRoot = [System.IO.DirectoryInfo](Split-Path (Get-GitRootFolder) -Parent)
+                ProjectRoot           = $projectRoot = GetProjectRoot
                 Source                = GetSourcePath $projectRoot
                 SourceManifest        = ''
                 Package               = ''
-                Output                = [DirectoryInfo](Join-Path $projectRoot 'output')
+                Output                = [System.IO.DirectoryInfo](Join-Path $projectRoot 'output')
                 Manifest              = ''
                 RootModule            = ''
             }
         } | Add-Member -TypeName 'BuildInfo' -PassThru
 
-        $buildInfo.ModuleName = GetModuleName $buildInfo.Path.Source
+        $buildInfo.ModuleName = $buildInfo.Path.Source.Parent.GetDirectories($buildInfo.Path.Source.Name).Name
         $buildInfo.Path.SourceManifest = Join-Path $buildInfo.Path.Source ('{0}.psd1' -f $buildInfo.ModuleName)
 
         # Override the release type based on commit message if not explicitly defined.
@@ -69,14 +68,14 @@ function Get-BuildInfo {
         }
         $buildInfo.Version = GetVersion $buildInfo.Path.SourceManifest | UpdateVersion -ReleaseType $ReleaseType
 
-        $buildInfo.Path.Package = [DirectoryInfo](Join-Path $buildInfo.Path.ProjectRoot $buildInfo.Version)
+        $buildInfo.Path.Package = [System.IO.DirectoryInfo](Join-Path $buildInfo.Path.ProjectRoot $buildInfo.Version)
         if ($buildInfo.Path.ProjectRoot.Name -ne $buildInfo.ModuleName) {
-            $buildInfo.Path.Package = [DirectoryInfo][Path]::Combine($buildInfo.Path.ProjectRoot, 'build', $buildInfo.ModuleName, $buildInfo.Version)
-            $buildInfo.Path.Output = [DirectoryInfo][Path]::Combine($buildInfo.Path.ProjectRoot, 'build', 'output', $buildInfo.ModuleName)
+            $buildInfo.Path.Package = [System.IO.DirectoryInfo][System.IO.Path]::Combine($buildInfo.Path.ProjectRoot, 'build', $buildInfo.ModuleName, $buildInfo.Version)
+            $buildInfo.Path.Output = [System.IO.DirectoryInfo][System.IO.Path]::Combine($buildInfo.Path.ProjectRoot, 'build', 'output', $buildInfo.ModuleName)
         }
 
-        $buildInfo.Path.Manifest = [FileInfo](Join-Path $buildInfo.Path.Package ('{0}.psd1' -f $buildInfo.ModuleName))
-        $buildInfo.Path.RootModule = [FileInfo](Join-Path $buildInfo.Path.Package ('{0}.psm1' -f $buildInfo.ModuleName))
+        $buildInfo.Path.Manifest = [System.IO.FileInfo](Join-Path $buildInfo.Path.Package ('{0}.psd1' -f $buildInfo.ModuleName))
+        $buildInfo.Path.RootModule = [System.IO.FileInfo](Join-Path $buildInfo.Path.Package ('{0}.psm1' -f $buildInfo.ModuleName))
 
         $buildInfo
     } catch {

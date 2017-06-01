@@ -1,11 +1,4 @@
 function GetBuildSystem {
-    <#
-    .SYNOPSIS
-        Get the build system name.
-    .DESCRIPTION
-        Attempt to determine the build system (if any) executing this script by inspecting the system.
-    #>
-
     [OutputType([String])]
     param ( )
 

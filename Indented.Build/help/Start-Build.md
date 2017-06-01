@@ -7,16 +7,16 @@ schema: 2.0.0
 # Start-Build
 
 ## SYNOPSIS
-{{Fill in the Synopsis}}
+Start a build.
 
 ## SYNTAX
 
 ```
-Start-Build [[-BuildType] <BuildType>] [[-ReleaseType] <ReleaseType>] [-PassThru] [-Quiet]
+Start-Build [[-BuildType] <String[]>] [[-ReleaseType] <String>] [[-BuildInfo] <PSObject>]
 ```
 
 ## DESCRIPTION
-{{Fill in the Description}}
+Start a build using the built-in task executor.
 
 ## EXAMPLES
 
@@ -30,76 +30,55 @@ PS C:\> {{ Add example code here }}
 ## PARAMETERS
 
 ### -BuildType
-{{Fill BuildType Description}}
+The task categories to execute.
 
 ```yaml
-Type: BuildType
-Parameter Sets: (All)
-Aliases: 
-Accepted values: Setup, Build, Test, Release, Publish
-
-Required: False
-Position: 0
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
-### -PassThru
-{{Fill PassThru Description}}
-
-```yaml
-Type: SwitchParameter
+Type: String[]
 Parameter Sets: (All)
 Aliases: 
 
 Required: False
-Position: Named
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
-### -Quiet
-{{Fill Quiet Description}}
-
-```yaml
-Type: SwitchParameter
-Parameter Sets: (All)
-Aliases: 
-
-Required: False
-Position: Named
-Default value: None
+Position: 1
+Default value: @('Setup', 'Build', 'Test')
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
 ### -ReleaseType
-{{Fill ReleaseType Description}}
+The release type to create.
 
 ```yaml
-Type: ReleaseType
+Type: String
 Parameter Sets: (All)
 Aliases: 
-Accepted values: Build, Minor, Major
 
 Required: False
-Position: 1
-Default value: None
+Position: 2
+Default value: Build
 Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -BuildInfo
+{{Fill BuildInfo Description}}
+
+```yaml
+Type: PSObject
+Parameter Sets: (All)
+Aliases: 
+
+Required: False
+Position: 3
+Default value: (Get-BuildInfo -BuildType $BuildType -ReleaseType $ReleaseType)
+Accept pipeline input: True (ByValue)
 Accept wildcard characters: False
 ```
 
 ## INPUTS
 
-### None
-
-
 ## OUTPUTS
 
-### System.Management.Automation.PSObject
-
+### TaskInfo
 
 ## NOTES
 
