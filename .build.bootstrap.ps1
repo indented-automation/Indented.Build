@@ -14,10 +14,10 @@ task GetBuildInfo {
         ModuleName = 'Indented.Build'
         Version    = [Version]'0.0.0'
         Path       = [PSCustomObject]@{
-            Source     = [System.IO.DirectoryInfo]"$pwd\Indented.Build"
-            Package    = [System.IO.DirectoryInfo]"$pwd\0.0.0"
-            RootModule = [System.IO.FileInfo]"$pwd\0.0.0\Indented.Build.psm1"
-            Manifest   = [System.IO.FileInfo]"$pwd\0.0.0\Indented.Build.psd1"
+            Source     = [System.IO.DirectoryInfo]"$psscriptroot\Indented.Build"
+            Package    = [System.IO.DirectoryInfo]"$psscriptroot\0.0.0"
+            RootModule = [System.IO.FileInfo]"$psscriptroot\0.0.0\Indented.Build.psm1"
+            Manifest   = [System.IO.FileInfo]"$psscriptroot\0.0.0\Indented.Build.psd1"
         }
     }
 }
