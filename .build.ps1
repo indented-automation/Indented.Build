@@ -366,7 +366,7 @@ task UpdateAppVeyorVersion -If (Test-Path (Join-Path $buildInfo.Path.ProjectRoot
 }
 
 task Clean {
-    $erroractionprefence = 'Stop'
+    $erroractionpreference = 'Stop'
 
     try {
         if (Get-Module $buildInfo.ModuleName) {

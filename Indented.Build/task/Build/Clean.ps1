@@ -1,5 +1,5 @@
 BuildTask Clean -Stage Build -Order 0 -Definition {
-    $erroractionprefence = 'Stop'
+    $erroractionpreference = 'Stop'
 
     try {
         if (Get-Module $buildInfo.ModuleName) {
