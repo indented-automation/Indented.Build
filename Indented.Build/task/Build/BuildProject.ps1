@@ -1,4 +1,4 @@
-BuildTask BuildProject -Stage Build -Order 0 -If { (Test-Path 'class*\*.*proj') -and -not (Test-Path 'class*\*.sln') } -Definition {
+BuildTask BuildProject -Stage Build -Order 0 -If { (Test-Path (Join-Path $buildInfo.Path.Source 'class*\*.*proj')) -and -not (Test-Path (Join-Path $buildInfo.Path.Source 'class*\*.sln')) } -Definition {
     try {
         Push-Location (Resolve-Path 'class*').Path
 

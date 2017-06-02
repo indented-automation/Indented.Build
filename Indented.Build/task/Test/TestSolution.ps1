@@ -1,4 +1,4 @@
-BuildTask TestSolution -Stage Test -If { Test-Path 'class*\packages\NUnit.ConsoleRunner.*\tools\nunit3-console.exe' } -Definition {
+BuildTask TestSolution -Stage Test -If { Test-Path (Join-Path $buildInfo.Path.Source 'class*\packages\NUnit.ConsoleRunner.*\tools\nunit3-console.exe') } -Definition {
     Push-Location (Resolve-Path (Join-Path $buildInfo.Path.Source 'class*'))
 
     $nunitConsole = (Resolve-Path 'packages\NUnit.ConsoleRunner.*\tools\nunit3-console.exe').Path

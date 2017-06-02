@@ -1,4 +1,4 @@
-BuildTask BuildSolution -Stage Build -Order 3 -If { Test-Path 'class*\*.sln' } -Definition {
+BuildTask BuildSolution -Stage Build -Order 3 -If { Test-Path (Join-Path $buildInfo.Path.Source 'class*\*.sln') } -Definition {
         try {
         Push-Location (Resolve-Path 'class*').Path
 

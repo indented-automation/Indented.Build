@@ -95,7 +95,7 @@ function Export-BuildScript {
     }
 
     if ($Path) {
-        $script.ToString() | Out-File $Path
+        $script.ToString() | Set-Content $Path
     } else {
         $script.ToString()
     }
