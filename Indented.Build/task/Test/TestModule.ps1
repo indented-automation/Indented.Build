@@ -20,12 +20,12 @@ BuildTask TestModule -Stage Test -Order 2 -Definition {
         $params = @{
             Script       = $path
             CodeCoverage = $buildInfo.Path.RootModule
-            OutputFile   = Join-Path $buildInfo.Path.Output ('{0}.xml' -f $buildInfo.ModuleName)
+            OutputFile   = Join-Path $buildInfo.Path.Output ('{0}-nunit.xml' -f $buildInfo.ModuleName)
             PassThru     = $true
         }
         Invoke-Pester @params
     }
-    if ($buildInfo.IsAdministrator -and -not (Test-CIServer)) {
+    if ($buildInfo.IsAdministrator -and $buildInfo.BuildSystem -eq 'Unknown') {
         $pester = Invoke-Command $invokePester -ArgumentList $buildInfo -ComputerName $env:COMPUTERNAME
     } else {
         $pester = & $invokePester $buildInfo

@@ -310,7 +310,7 @@ function Get-BuildItem {
         Get-ChildItem $items -Recurse -ErrorAction SilentlyContinue |
             Where-Object { -not $_.PSIsContainer -and $_.Extension -eq '.ps1' -and $_.Length -gt 0 }
     } elseif ($Type -eq 'Static') {
-        $exclude = 'class*', 'enum*', 'priv*', 'pub*', 'InitializeModule.ps1', '*.config', 'test*', 'help'
+        $exclude = 'class*', 'enum*', 'priv*', 'pub*', 'InitializeModule.ps1', '*.config', 'test*', 'help', '.build*.ps1'
 
         Get-ChildItem -Exclude $exclude
     }
@@ -333,13 +333,10 @@ task Build Clean,
 task Test TestModuleImport,
           PSScriptAnalyzer,
           TestModule,
-          AddAppveyorCommitMessage,
-          UploadAppVeyorTestResults,
           ValidateTestResults
 
 task Publish UpdateVersion,
-             PublishToCurrentUser,
-             PublishToPSGallery
+             PublishToCurrentUser
 
 task InstallRequiredModules {
     $erroractionpreference = 'Stop'
@@ -641,12 +638,12 @@ task TestModule {
         $params = @{
             Script       = $path
             CodeCoverage = $buildInfo.Path.RootModule
-            OutputFile   = Join-Path $buildInfo.Path.Output ('{0}.xml' -f $buildInfo.ModuleName)
+            OutputFile   = Join-Path $buildInfo.Path.Output ('{0}-nunit.xml' -f $buildInfo.ModuleName)
             PassThru     = $true
         }
         Invoke-Pester @params
     }
-    if ($buildInfo.IsAdministrator -and -not (Test-CIServer)) {
+    if ($buildInfo.IsAdministrator -and $buildInfo.BuildSystem -eq 'Unknown') {
         $pester = Invoke-Command $invokePester -ArgumentList $buildInfo -ComputerName $env:COMPUTERNAME
     } else {
         $pester = & $invokePester $buildInfo
@@ -654,61 +651,6 @@ task TestModule {
     
     $path = Join-Path $buildInfo.Path.Output 'pester-output.xml'
     $pester | Export-CliXml $path
-}
-
-task AddAppveyorCommitMessage -If ($buildInfo.BuildSystem -eq 'AppVeyor') {
-    # Pester
-    $pester = Invoke-Pester @params
-
-    $path = Join-Path $buildInfo.Path.Output 'pester-output.xml'
-    if (Test-Path $path) {
-        $pester = Import-CliXml $path
-
-        $params = @{
-            Message  = 'Passed {0} of {1} tests' -f $pester.PassedCount, $pester.TotalCount
-            Category = 'Information'
-        }
-        if ($pester.FailedCount -gt 0) {
-            $params.Category = 'Warning'
-        }
-        Add-AppVeyorCompilationMessage @params
-
-        if ($pester.CodeCoverage) {
-            [Double]$codeCoverage = $pester.CodeCoverage.NumberOfCommandsExecuted / $pester.CodeCoverage.NumberOfCommandsAnalyzed
-
-            $params = @{
-                Message  = '{0:P2} test coverage' -f $codeCoverage
-                Category = 'Information'
-            }
-            if ($codecoverage -lt $buildInfo.CodeCoverageThreshold) {
-                $params.Category = 'Warning'
-            }
-            Add-AppVeyorCompilationMessage @params
-        }
-    }
-
-    # Solution
-    Get-ChildItem $buildInfo.Path.Output -Filter *.dll.xml | ForEach-Object {
-        $report = [Xml](Get-Content $_.FullName -Raw)
-        $params = @{
-            Message = 'Passed {0} of {1} solution tests in {2}' -f $report.'test-run'.passed,
-                                                                    $report.'test-run'.total,
-                                                                    $report.'test-run'.'test-suite'.name
-            Category = 'Information'
-        }
-        if ([Int]$report.'test-run'.failed -gt 0) {
-            $params.Category = 'Warning'
-        }
-        Add-AppVeyorCompilationMessage @params
-    }
-}
-
-task UploadAppVeyorTestResults -If ($buildInfo.BuildSystem -eq 'AppVeyor') {
-    $path = Join-Path $buildInfo.Path.Output ('{0}.xml' -f $buildInfo.ModuleName)
-    if (Test-Path $path) {
-        $webClient = New-Object System.Net.WebClient
-        $webClient.UploadFile(('https://ci.appveyor.com/api/testresults/nunit/{0}' -f $env:APPVEYOR_JOB_ID), $path)
-    }
 }
 
 task ValidateTestResults {
@@ -765,10 +707,6 @@ task PublishToCurrentUser {
         $null = New-Item $path -ItemType Directory
     }
     Copy-Item $buildInfo.Path.Package -Destination $path -Recurse -Force
-}
-
-task PublishToPSGallery -If ($null -ne $env:NuGetApiKey) {
-    Publish-Module -Path $buildInfo.Path.Package -NuGetApiKey $env:NuGetApiKey -Repository PSGallery -ErrorAction Stop
 }
 
 

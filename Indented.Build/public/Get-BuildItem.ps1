@@ -32,7 +32,7 @@ function Get-BuildItem {
         Get-ChildItem $items -Recurse -ErrorAction SilentlyContinue |
             Where-Object { -not $_.PSIsContainer -and $_.Extension -eq '.ps1' -and $_.Length -gt 0 }
     } elseif ($Type -eq 'Static') {
-        $exclude = 'class*', 'enum*', 'priv*', 'pub*', 'InitializeModule.ps1', '*.config', 'test*', 'help'
+        $exclude = 'class*', 'enum*', 'priv*', 'pub*', 'InitializeModule.ps1', '*.config', 'test*', 'help', '.build*.ps1'
 
         Get-ChildItem -Exclude $exclude
     }
