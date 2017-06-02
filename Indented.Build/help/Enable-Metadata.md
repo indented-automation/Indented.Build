@@ -20,14 +20,16 @@ This function is derived Get and Update-Metadata from PoshCode\Configuration.
 
 A boolean value is returned indicating if the property is available in the metadata file.
 
+If the property does not exist, or exists more than once within the specified file this command will return false.
+
 ## EXAMPLES
 
-### Example 1
+### -------------------------- EXAMPLE 1 --------------------------
 ```
-PS C:\> {{ Add example code here }}
+Enable-Metadata .\module.psd1 -PropertyName RequiredAssemblies
 ```
 
-{{ Add example description here }}
+Enable an existing (commented) RequiredAssemblies property within the module.psd1 file.
 
 ## PARAMETERS
 

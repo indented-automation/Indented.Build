@@ -7,16 +7,16 @@ schema: 2.0.0
 # Export-BuildScript
 
 ## SYNOPSIS
-Export a persistent build script.
+Export a build script for use with Invoke-Build.
 
 ## SYNTAX
 
 ```
-Export-BuildScript [[-BuildInfo] <PSObject>] [[-BuildSystem] <String>]
+Export-BuildScript [[-BuildInfo] <PSObject>] [[-BuildSystem] <String>] [[-Path] <String>]
 ```
 
 ## DESCRIPTION
-Export a persistent build script (as .build.ps1).
+Export a build script for use with Invoke-Build.
 
 ## EXAMPLES
 
@@ -61,13 +61,29 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -Path
+If specified, the build script will be written to the the specified path.
+By default the build script is written (as a string) to the console.
+
+```yaml
+Type: String
+Parameter Sets: (All)
+Aliases: 
+
+Required: False
+Position: 3
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ## INPUTS
 
 ### BuildInfo (from Get-BuildInfo)
 
 ## OUTPUTS
 
-### System.Void
+### System.String
 
 ## NOTES
 

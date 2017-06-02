@@ -4,7 +4,7 @@ BuildTask Merge -Stage Build -Order 4 -Definition {
 
     $usingStatements = New-Object System.Collections.Generic.List[String]
 
-    Get-BuildItem -Type ShouldMerge | ForEach-Object {
+    $buildInfo | Get-BuildItem -Type ShouldMerge | ForEach-Object {
         $functionDefinition = Get-Content $_.FullName | ForEach-Object {
             if ($_ -match '^using') {
                 $usingStatements.Add($_)

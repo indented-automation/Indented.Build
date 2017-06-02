@@ -1,4 +1,4 @@
-﻿BuildTask UpdateAppVeyorYml -Stage Setup -Order 0 -If { $appVeyorYml = Join-Path $buildInfo.Path.ProjectRoot 'appveyor.yml'; (Test-Path $appVeyorYml) -and (Get-Item $appVeyorYml).Size -gt 0 } -Definition {
+﻿BuildTask UpdateAppVeyorYml -Stage Setup -Order 2 -If { $appVeyorYml = Join-Path $buildInfo.Path.ProjectRoot 'appveyor.yml'; (Test-Path $appVeyorYml) -and (Get-Item $appVeyorYml).Size -gt 0 } -Definition {
     $path = Join-Path $buildInfo.ProjectRoot 'appveyor.yml'
     $content = 'os: WMF 5',
                 '',

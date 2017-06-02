@@ -31,6 +31,6 @@ BuildTask TestModule -Stage Test -Order 2 -Definition {
         $pester = & $invokePester $buildInfo
     }
     
-    $path = Join-Path $buildInfo.Output 'pester-output.xml'
+    $path = Join-Path $buildInfo.Path.Output 'pester-output.xml'
     $pester | Export-CliXml $path
 }

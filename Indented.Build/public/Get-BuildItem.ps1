@@ -17,8 +17,14 @@ function Get-BuildItem {
         #   Static      - Files which are not within a well known top-level folder. Captures help content in en-US, format files, configuration files, etc.
         [Parameter(Mandatory = $true)]
         [ValidateSet('ShouldMerge', 'Static')]
-        [String]$Type
+        [String]$Type,
+
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [PSTypeName('BuildInfo')]
+        [PSObject]$BuildInfo
     )
+
+    Push-Location $buildInfo.Path.Source
 
     if ($Type -eq 'ShouldMerge') {
         $items = 'enum*', 'class*', 'priv*', 'pub*', 'InitializeModule.ps1'
@@ -30,4 +36,6 @@ function Get-BuildItem {
 
         Get-ChildItem -Exclude $exclude
     }
+
+    Pop-Location
 }

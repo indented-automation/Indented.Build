@@ -29,6 +29,14 @@ function Get-BuildTask {
             $Name += '.ps1'
         }
         $path = Join-Path $psscriptroot 'task'
+
+        if (-not $Script:buildTaskCache) {
+            $Script:buildTaskCache = @{}
+            Get-ChildItem $path -File -Filter *.ps1 -Recurse | ForEach-Object {
+                $task = . $_.FullName
+                $Script:buildTaskCache.Add($task.Name, $task)
+            }
+        }
     }
 
     process {
@@ -36,12 +44,14 @@ function Get-BuildTask {
             Push-Location $buildInfo.Path.Source
         }
 
-        Get-ChildItem $path -File -Filter $Name -Recurse | ForEach-Object {
-            try {
-                . $_.FullName | Where-Object { $ListAvailable -or (& $_.If) }
-            } catch {
-                Write-Error -Message ('Failed to evaluate task condition: {0}' -f $_.Exception.Message) -ErrorId 'ConditionEvaluationFailed'
+        try {
+            $Script:buildTaskCache.Values | Where-Object {
+                Write-Verbose ('Evaluating {0}' -f $_.Name)
+
+                $_.Name -like $Name -and ($ListAvailable -or (& $_.If))
             }
+        } catch {
+            Write-Error -Message ('Failed to evaluate task condition: {0}' -f $_.Exception.Message) -ErrorId 'ConditionEvaluationFailed'
         }
 
         if ($buildInfo) {

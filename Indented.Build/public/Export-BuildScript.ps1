@@ -1,15 +1,15 @@
 function Export-BuildScript {
     <#
     .SYNOPSIS
-        Export a persistent build script.
+        Export a build script for use with Invoke-Build.
     .DESCRIPTION
-        Export a persistent build script (as .build.ps1).
+        Export a build script for use with Invoke-Build.
     .INPUTS
         BuildInfo (from Get-BuildInfo)
     #>
 
     [CmdletBinding()]
-    [OutputType([Void])]
+    [OutputType([String])]
     param (
         # The build information object is used to determine which tasks are applicable.
         [Parameter(ValueFromPipeline = $true)]
@@ -17,7 +17,10 @@ function Export-BuildScript {
         [PSObject]$BuildInfo = (Get-BuildInfo),
 
         # By default the build system is automatically discovered. The BuildSystem parameter overrides any automatically discovered value. Tasks associated with the build system are added to the generated script.
-        [String]$BuildSystem
+        [String]$BuildSystem,
+
+        # If specified, the build script will be written to the the specified path. By default the build script is written (as a string) to the console.
+        [String]$Path
     )
 
     if ($BuildSystem) {
@@ -25,6 +28,7 @@ function Export-BuildScript {
     }
 
     $script = New-Object System.Text.StringBuilder 
+
     # Add supporting functions to create the BuildInfo object.
     (Get-Command Get-BuildInfo).ScriptBlock.Ast.FindAll( {
             param ( $ast )
@@ -63,6 +67,9 @@ function Export-BuildScript {
         }
     }, Order, Name
 
+    # Fill BuildInfo
+    $null = $script.AppendLine('$buildInfo = Get-BuildInfo')
+
     # Build the wrapper tasks
     $tasks | Group-Object Stage | ForEach-Object {
         $indentLength = 'task '.Length + $_.Name.Length
@@ -87,5 +94,9 @@ function Export-BuildScript {
                         AppendLine()
     }
 
-    $script.ToString()
+    if ($Path) {
+        $script.ToString() | Out-File $Path
+    } else {
+        $script.ToString()
+    }
 }

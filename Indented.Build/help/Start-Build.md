@@ -13,10 +13,15 @@ Start a build.
 
 ```
 Start-Build [[-BuildType] <String[]>] [[-ReleaseType] <String>] [[-BuildInfo] <PSObject>]
+ [[-ScriptName] <String>]
 ```
 
 ## DESCRIPTION
-Start a build using the built-in task executor.
+Start a build using Invoke-Build.
+If a build script is not present one will be created.
+
+If a build script exists it will be used.
+If the build script exists this command is superfluous.
 
 ## EXAMPLES
 
@@ -74,11 +79,26 @@ Accept pipeline input: True (ByValue)
 Accept wildcard characters: False
 ```
 
+### -ScriptName
+{{Fill ScriptName Description}}
+
+```yaml
+Type: String
+Parameter Sets: (All)
+Aliases: 
+
+Required: False
+Position: 4
+Default value: .build.ps1
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ## INPUTS
 
 ## OUTPUTS
 
-### TaskInfo
+### System.Void
 
 ## NOTES
 

@@ -19,7 +19,7 @@
 
     # Pester code coverage
     [Double]$codeCoverage = $pester.CodeCoverage.NumberOfCommandsExecuted / $pester.CodeCoverage.NumberOfCommandsAnalyzed
-    $pester.CodeCoverage.MissedCommands | Export-Csv (Join-Path $buildInfo.Output 'CodeCoverage.csv') -NoTypeInformation
+    $pester.CodeCoverage.MissedCommands | Export-Csv (Join-Path $buildInfo.Path.Output 'CodeCoverage.csv') -NoTypeInformation
 
     if ($codecoverage -lt $buildInfo.CodeCoverageThreshold) {
         'Pester code coverage ({0:P}) is below threshold {1:P}.' -f $codeCoverage, $buildInfo.CodeCoverageThreshold

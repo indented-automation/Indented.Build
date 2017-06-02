@@ -6,7 +6,10 @@ task Build Setup,
            Merge,
            UpdateMetadata
 
-task Setup {
+task Setup GetBuildInfo,
+           InstallRequiredModules
+
+task GetBuildInfo {
     $Script:buildInfo = [PSCustomObject]@{
         ModuleName = 'Indented.Build'
         Version    = [Version]'0.0.0'
@@ -16,6 +19,24 @@ task Setup {
             RootModule = [System.IO.FileInfo]"$pwd\0.0.0\Indented.Build.psm1"
             Manifest   = [System.IO.FileInfo]"$pwd\0.0.0\Indented.Build.psd1"
         }
+    }
+}
+
+task InstallRequiredModules {
+    $erroractionpreference = 'Stop'
+    try {
+        $nugetPackageProvider = Get-PackageProvider NuGet -ErrorAction SilentlyContinue
+        if (-not $nugetPackageProvider -or $nugetPackageProvider.Version -lt [Version]'2.8.5.201') {
+            $null = Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+        }
+        Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+
+        'Configuration', 'Pester' | Where-Object { -not (Get-Module $_ -ListAvailable) } | ForEach-Object {
+            Install-Module $_ -Scope CurrentUser
+        }
+        Import-Module 'Configuration', 'Pester' -Global
+    } catch {
+        throw
     }
 }
 

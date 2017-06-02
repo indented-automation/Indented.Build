@@ -1,14 +1,20 @@
 filter Enable-Metadata {
     <#
-     .SYNOPSIS
+    .SYNOPSIS
         Enable a metadata property which has been commented out.
-     .DESCRIPTION
+    .DESCRIPTION
         This function is derived Get and Update-Metadata from PoshCode\Configuration.
     
         A boolean value is returned indicating if the property is available in the metadata file.
-     .INPUTS
+
+        If the property does not exist, or exists more than once within the specified file this command will return false.
+    .INPUTS
         System.String
-     .NOTES
+    .EXAMPLE
+        Enable-Metadata .\module.psd1 -PropertyName RequiredAssemblies
+
+        Enable an existing (commented) RequiredAssemblies property within the module.psd1 file.
+    .NOTES
         Change log:
             04/08/2016 - Chris Dent - Created.
     #>
@@ -67,17 +73,17 @@ filter Enable-Metadata {
 
         try {
             Set-Content -Path $Path -Value $manifestContent -NoNewline -ErrorAction Stop
+            $true
         } catch {
-            return $false
+            $false
         }
-        return $true
     } elseif ($existingValue.Count -eq 0) {
         # Item not found
-        Write-Verbose "Can't find disabled property '$PropertyName' in $Path"
-        return $false
+        Write-Warning "Can't find disabled property '$PropertyName' in $Path"
+        $false
     } else {
         # Ambiguous match
-        Write-Verbose "Found more than one '$PropertyName' in $Path"
-        return $false
+        Write-Warning "Found more than one '$PropertyName' in $Path"
+        $false
     }
 }

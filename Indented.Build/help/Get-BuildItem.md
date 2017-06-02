@@ -12,7 +12,7 @@ Get source items.
 ## SYNTAX
 
 ```
-Get-BuildItem [-Type] <String>
+Get-BuildItem [-Type] <String> [-BuildInfo] <PSObject>
 ```
 
 ## DESCRIPTION
@@ -47,6 +47,21 @@ Required: True
 Position: 1
 Default value: None
 Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -BuildInfo
+{{Fill BuildInfo Description}}
+
+```yaml
+Type: PSObject
+Parameter Sets: (All)
+Aliases: 
+
+Required: True
+Position: 2
+Default value: None
+Accept pipeline input: True (ByValue)
 Accept wildcard characters: False
 ```
 

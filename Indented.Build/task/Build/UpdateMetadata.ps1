@@ -13,7 +13,7 @@ BuildTask UpdateMetadata -Stage Build -Definition {
         # FunctionsToExport
         if (Enable-Metadata $path -PropertyName FunctionsToExport) {
             Update-Metadata $path -PropertyName FunctionsToExport -Value (
-                (Get-ChildItem (Join-Path $buildInfo.Path.Source 'pub*') -Filter '*.ps1' -File -Recurse).BaseName
+                (Get-ChildItem (Join-Path $buildInfo.Path.Source 'pub*') -Filter '*.ps1' -Recurse).BaseName
             )
         }
 

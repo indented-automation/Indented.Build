@@ -41,7 +41,7 @@ function Get-BuildInfo {
             CodeCoverageThreshold = 0.9
             IsAdministrator       = TestAdministrator
             Repository            = [PSCustomObject]@{
-                Branch                = (Get-GitBranch).Branch
+                Branch                = GetBranchName
                 LastCommitMessage     = GetLastCommitMessage
             }
             Path                  = [PSCustomObject]@{

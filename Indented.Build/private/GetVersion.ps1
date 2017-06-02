@@ -7,7 +7,8 @@ function GetVersion {
     )
 
     if (Test-Path $Path) {
-        $versionString = Get-Metadata -Path $Path -PropertyName ModuleVersion
+        $manifestContent = Import-PowerShellDataFile $Path
+        $versionString = $manifestContent.ModuleVersion
 
         $version = [Version]'0.0.0'
         if ([Version]::TryParse($versionString, [Ref]$version)) {
