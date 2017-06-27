@@ -1,4 +1,5 @@
 function Get-BuildItem {
+
     <#
     .SYNOPSIS
         Get source items.
@@ -19,20 +20,50 @@ function Get-BuildItem {
         [ValidateSet('ShouldMerge', 'Static')]
         [String]$Type,
 
+        # BuildInfo is used to determine the source path.
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [PSTypeName('BuildInfo')]
-        [PSObject]$BuildInfo
+        [PSObject]$BuildInfo,
+
+        # Exclude script files containing PowerShell classes.
+        [Switch]$ExcludeClass
     )
 
     Push-Location $buildInfo.Path.Source
 
-    if ($Type -eq 'ShouldMerge') {
-        $items = 'enum*', 'class*', 'priv*', 'pub*', 'InitializeModule.ps1'
+    $itemTypes = @{
+        enumeration    = 'enum*'
+        class          = 'class*'
+        private        = 'priv*'
+        public         = 'pub*'
+        initialisation = 'InitializeModule.ps1'
+    }
 
-        Get-ChildItem $items -Recurse -ErrorAction SilentlyContinue |
-            Where-Object { -not $_.PSIsContainer -and $_.Extension -eq '.ps1' -and $_.Length -gt 0 }
+    if ($Type -eq 'ShouldMerge') {
+        foreach ($itemType in $itemTypes.Keys) {
+            if ($itemType -ne 'class' -or ($itemType -eq 'class' -and -not $ExcludeClass)) {
+                $items = Get-ChildItem $itemTypes[$itemType] -Recurse -ErrorAction SilentlyContinue |
+                    Where-Object { -not $_.PSIsContainer -and $_.Extension -eq '.ps1' -and $_.Length -gt 0 }
+
+                $orderingFilePath = Join-Path $itemTypes[$itemType] 'order.txt'
+                if (Test-Path $orderingFilePath) {
+                    [String[]]$order = Get-Content (Resolve-Path $orderingFilePath).Path
+
+                    $items = $items | Sort-Object {
+                        $index = $order.IndexOf($_.BaseName)
+                        if ($index -eq -1) {
+                            [Int32]::MaxValue
+                        } else {
+                            $index
+                        }
+                    }, Name
+                }
+
+                $items
+            }
+        }
     } elseif ($Type -eq 'Static') {
-        $exclude = 'class*', 'enum*', 'priv*', 'pub*', 'InitializeModule.ps1', '*.config', 'test*', 'help', '.build*.ps1'
+        [String[]]$exclude = $itemTypes.Values + '*.config', 'test*', 'doc', 'help', '.build*.ps1'
 
         Get-ChildItem -Exclude $exclude
     }

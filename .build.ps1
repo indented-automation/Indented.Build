@@ -708,5 +708,3 @@ task PublishToCurrentUser {
     }
     Copy-Item $buildInfo.Path.Package -Destination $path -Recurse -Force
 }
-
-

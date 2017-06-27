@@ -12,7 +12,7 @@ Get source items.
 ## SYNTAX
 
 ```
-Get-BuildItem [-Type] <String> [-BuildInfo] <PSObject>
+Get-BuildItem [-Type] <String> [-BuildInfo] <PSObject> [-ExcludeClass]
 ```
 
 ## DESCRIPTION
@@ -51,7 +51,7 @@ Accept wildcard characters: False
 ```
 
 ### -BuildInfo
-{{Fill BuildInfo Description}}
+BuildInfo is used to determine the source path.
 
 ```yaml
 Type: PSObject
@@ -62,6 +62,21 @@ Required: True
 Position: 2
 Default value: None
 Accept pipeline input: True (ByValue)
+Accept wildcard characters: False
+```
+
+### -ExcludeClass
+Exclude script files containing PowerShell classes.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: 
+
+Required: False
+Position: Named
+Default value: False
+Accept pipeline input: False
 Accept wildcard characters: False
 ```
 

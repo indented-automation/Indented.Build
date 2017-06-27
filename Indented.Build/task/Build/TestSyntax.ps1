@@ -1,7 +1,7 @@
 BuildTask TestSyntax -Stage Build -Order 1 -Definition {
     $hasSyntaxErrors = $false
 
-    $buildInfo | Get-BuildItem -Type ShouldMerge | ForEach-Object {
+    $buildInfo | Get-BuildItem -Type ShouldMerge -ExcludeClass | ForEach-Object {
         $tokens = $null
         [System.Management.Automation.Language.ParseError[]]$parseErrors = @()
         $null = [System.Management.Automation.Language.Parser]::ParseInput(

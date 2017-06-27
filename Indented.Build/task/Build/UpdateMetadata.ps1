@@ -1,4 +1,4 @@
-BuildTask UpdateMetadata -Stage Build -Definition {
+task UpdateMetadata {
     try {
         $path = $buildInfo.Path.Manifest
 
@@ -11,10 +11,32 @@ BuildTask UpdateMetadata -Stage Build -Definition {
         }
 
         # FunctionsToExport
-        if (Enable-Metadata $path -PropertyName FunctionsToExport) {
-            Update-Metadata $path -PropertyName FunctionsToExport -Value (
-                (Get-ChildItem (Join-Path $buildInfo.Path.Source 'pub*') -Filter '*.ps1' -Recurse).BaseName
-            )
+        $functionsToExport = (Get-ChildItem (Join-Path $buildInfo.Path.Source 'pub*') -Filter '*.ps1' -Recurse)
+        if ($functionsToExport) {
+            if (Enable-Metadata $path -PropertyName FunctionsToExport) {
+                Update-Metadata $path -PropertyName FunctionsToExport -Value $functionsToExport.BaseName
+            }
+        }
+
+        # DscResourcesToExport
+        $tokens = $parseErrors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput(
+            (Get-Content $buildInfo.Path.RootModule -Raw),
+            $buildInfo.Path.RootModule,
+            [Ref]$tokens,
+            [Ref]$parseErrors
+        )
+        $dscResourcesToExport = $ast.FindAll( {
+            param ($ast)
+
+            $ast -is [System.Management.Automation.Language.TypeDefinitionAst] -and 
+            $ast.IsClass -and 
+            $ast.Attributes.TypeName.FullName -contains 'DscResource'
+        }, $true).Name
+        if ($null -ne $dscResourcesToExport) {
+            if (Enable-Metadata $path -PropertyName DscResourcesToExport) {
+                Update-Metadata $path -PropertyName DscResourcesToExport -Value $dscResourcesToExport
+            }
         }
 
         # RequiredAssemblies
