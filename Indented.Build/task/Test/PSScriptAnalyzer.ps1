@@ -1,11 +1,18 @@
-BuildTask PSScriptAnalyzer -Stage Test -Order 1 -If { Get-Module PSScriptAnalyzer -ListAvailable } -Definition {
-    'enumeration', 'class', 'private', 'public', 'InitializeModule.ps1' | ForEach-Object {
-        $path = Join-Path $buildInfo.Path.Source $_
-        if (Test-Path $path) {
-            Invoke-ScriptAnalyzer -Path $path -Recurse | ForEach-Object {
-                $_
-                $_ | Export-Csv (Join-Path $buildInfo.Path.Output 'psscriptanalyzer.csv') -NoTypeInformation -Append
+task PSScriptAnalyzer -If (Get-Module PSScriptAnalyzer -ListAvailable) {
+    try {
+        Push-Location $buildInfo.Path.Source
+        'priv*', 'pub*', 'InitializeModule.ps1' | Where-Object { Test-Path $_ } | ForEach-Object {
+            $path = Resolve-Path (Join-Path $buildInfo.Path.Source $_)
+            if (Test-Path $path) {
+                Invoke-ScriptAnalyzer -Path $path -Recurse | ForEach-Object {
+                    $_
+                    $_ | Export-Csv (Join-Path $buildInfo.Path.Output 'psscriptanalyzer.csv') -NoTypeInformation -Append
+                }
             }
         }
+    } catch {
+        throw
+    } finally {
+        Pop-Location
     }
 }
