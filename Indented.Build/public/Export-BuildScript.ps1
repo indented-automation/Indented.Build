@@ -1,3 +1,5 @@
+using namespace System.Text
+
 function Export-BuildScript {
     <#
     .SYNOPSIS
@@ -27,7 +29,7 @@ function Export-BuildScript {
         $BuildInfo.BuildSystem = $BuildSystem
     }
 
-    $script = New-Object System.Text.StringBuilder 
+    $script = New-Object StringBuilder 
 
     # Add supporting functions to create the BuildInfo object.
     (Get-Command Get-BuildInfo).ScriptBlock.Ast.FindAll( {
@@ -63,25 +65,34 @@ function Export-BuildScript {
             'Setup'   { 1 }
             'Build'   { 2 }
             'Test'    { 3 }
-            'Publish' { 4 }
+            'Pack'    { 4 }
+            'Publish' { 5 }
         }
     }, Order, Name
 
     # Fill BuildInfo
     $null = $script.AppendLine('$buildInfo = Get-BuildInfo')
 
-    # Build the wrapper tasks
+    # Build the wrapper tasks and insert the block at the top of the script
+    $taskSets = New-Object StringBuilder
+    # Add a default task set
+    $null = $taskSets.AppendLine('task default Setup,').
+                      AppendLine('             Build,').
+                      AppendLine('             Test').
+                      AppendLine()
+
     $tasks | Group-Object Stage | ForEach-Object {
         $indentLength = 'task '.Length + $_.Name.Length
-        $null = $script.AppendFormat('task {0} {1}', $_.Name, $_.Group[0].Name)
+        $null = $taskSets.AppendFormat('task {0} {1}', $_.Name, $_.Group[0].Name)
         foreach ($task in $_.Group | Select-Object -Skip 1) {
-            $null = $script.Append(',').
-                            AppendLine().
-                            AppendFormat('{0} {1}', (' ' * $indentLength), $task.Name)
+            $null = $taskSets.Append(',').
+                              AppendLine().
+                              AppendFormat('{0} {1}', (' ' * $indentLength), $task.Name)
         }
-        $null = $script.AppendLine().
-                        AppendLine()
+        $null = $taskSets.AppendLine().
+                          AppendLine()
     }
+    $null = $script.Insert(0, $taskSets.ToString())
 
     $tasks | ForEach-Object {
         $null = $script.AppendFormat('task {0}', $_.Name)

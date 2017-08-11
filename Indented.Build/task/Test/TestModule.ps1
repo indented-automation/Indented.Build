@@ -8,7 +8,7 @@ BuildTask TestModule -Stage Test -Order 2 -Definition {
             $buildInfo
         )
 
-        $path = (Resolve-Path (Join-Path $buildInfo.Path.Source 'test*')).Path
+        $path = Join-Path $buildInfo.Path.Source 'test*'
 
         if (Test-Path (Join-Path $path 'stub')) {
             Get-ChildItem (Join-Path $path 'stub') -Filter *.psm1 | ForEach-Object {

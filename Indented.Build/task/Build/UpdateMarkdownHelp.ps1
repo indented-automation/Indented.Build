@@ -1,4 +1,4 @@
-task UpdateMarkdownHelp -If (Get-Module platyPS -ListAvailable) {
+BuildTask UpdateMarkdownHelp -If { Get-Module platyPS -ListAvailable } -Stage Build -Definition {
     $exceptionMessage = powershell.exe -NoProfile -Command ('
         try {{
             $moduleInfo = Import-Module "{0}" -ErrorAction Stop -PassThru

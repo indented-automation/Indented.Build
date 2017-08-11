@@ -49,7 +49,8 @@ function Get-BuildInfo {
                 Source                = GetSourcePath $projectRoot
                 SourceManifest        = ''
                 Package               = ''
-                Output                = [System.IO.DirectoryInfo](Join-Path $projectRoot 'output')
+                Output                = $output = [System.IO.DirectoryInfo](Join-Path $projectRoot 'output')
+                Nuget                 = Join-Path $output 'packages'
                 Manifest              = ''
                 RootModule            = ''
             }
@@ -72,6 +73,7 @@ function Get-BuildInfo {
         if ($buildInfo.Path.ProjectRoot.Name -ne $buildInfo.ModuleName) {
             $buildInfo.Path.Package = [System.IO.DirectoryInfo][System.IO.Path]::Combine($buildInfo.Path.ProjectRoot, 'build', $buildInfo.ModuleName, $buildInfo.Version)
             $buildInfo.Path.Output = [System.IO.DirectoryInfo][System.IO.Path]::Combine($buildInfo.Path.ProjectRoot, 'build', 'output', $buildInfo.ModuleName)
+            $buildInfo.Path.Nuget = [System.IO.DirectoryInfo][System.IO.Path]::Combine($buildInfo.Path.ProjectRoot, 'build', 'output', 'packages')
         }
 
         $buildInfo.Path.Manifest = [System.IO.FileInfo](Join-Path $buildInfo.Path.Package ('{0}.psd1' -f $buildInfo.ModuleName))

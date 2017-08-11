@@ -4,7 +4,8 @@ task Build Setup,
            Clean,
            CopyModuleFiles,
            Merge,
-           UpdateMetadata
+           UpdateMetadata,
+           UpdateBuildScript
 
 task Setup GetBuildInfo,
            InstallRequiredModules
@@ -14,10 +15,11 @@ task GetBuildInfo {
         ModuleName = 'Indented.Build'
         Version    = [Version]'0.0.0'
         Path       = [PSCustomObject]@{
-            Source     = [System.IO.DirectoryInfo]"$psscriptroot\Indented.Build"
-            Package    = [System.IO.DirectoryInfo]"$psscriptroot\0.0.0"
-            RootModule = [System.IO.FileInfo]"$psscriptroot\0.0.0\Indented.Build.psm1"
-            Manifest   = [System.IO.FileInfo]"$psscriptroot\0.0.0\Indented.Build.psd1"
+            ProjectRoot = $psscriptroot
+            Source      = [System.IO.DirectoryInfo]"$psscriptroot\Indented.Build"
+            Package     = [System.IO.DirectoryInfo]"$psscriptroot\0.0.0"
+            RootModule  = [System.IO.FileInfo]"$psscriptroot\0.0.0\Indented.Build.psm1"
+            Manifest    = [System.IO.FileInfo]"$psscriptroot\0.0.0\Indented.Build.psd1"
         }
     }
 }
@@ -107,4 +109,9 @@ task UpdateMetadata {
     } catch {
         throw
     }
+}
+
+task UpdateBuildScript {
+    Import-Module $buildInfo.Path.Manifest -Global -Force
+    Export-BuildScript -BuildSystem AppVeyor -Path (Join-Path $buildInfo.Path.ProjectRoot '.build.ps1')
 }

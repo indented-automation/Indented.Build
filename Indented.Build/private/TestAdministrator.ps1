@@ -1,7 +1,9 @@
+using namespace System.Security.Principal
+
 function TestAdministrator {
     [OutputType([Boolean])]
     param ( )
 
-    ([System.Security.Principal.WindowsPrincipal][System.Security.Principal.WindowsIdentity]::GetCurrent()).
-        IsInRole([System.Security.Principal.WindowsBuiltInRole]'Administrator')
+    ([WindowsPrincipal][WindowsIdentity]::GetCurrent()).
+        IsInRole([WindowsBuiltInRole]'Administrator')
 }

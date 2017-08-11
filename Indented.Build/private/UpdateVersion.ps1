@@ -1,13 +1,13 @@
 function UpdateVersion {
     [OutputType([Version])]
     param (
+        # The current version number.
+        [Parameter(Position = 1, ValueFromPipeline = $true)]
+        [Version]$Version,
+
         # The release type.
         [ValidateSet('Build', 'Minor', 'Major')]
-        [String]$ReleaseType = 'Build',
-
-        # The current version number.
-        [Parameter(ValueFromPipeline = $true)]
-        [Version]$Version
+        [String]$ReleaseType = 'Build'
     )
 
     process {

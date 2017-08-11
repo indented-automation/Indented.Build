@@ -79,7 +79,7 @@ filter Enable-Metadata {
         }
     } elseif ($existingValue.Count -eq 0) {
         # Item not found
-        Write-Warning "Can't find disabled property '$PropertyName' in $Path"
+        Write-Warning "Cannot find disabled property '$PropertyName' in $Path"
         $false
     } else {
         # Ambiguous match

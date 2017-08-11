@@ -43,6 +43,7 @@ filter Start-Build {
             $shouldClean = $true
         }
 
+        Import-Module InvokeBuild -Global
         Invoke-Build -Task $BuildType -File $buildScript
     } catch {
         throw

@@ -1,5 +1,5 @@
 BuildTask Clean -Stage Build -Order 0 -Definition {
-    $erroractionpreference = 'Stop'
+    $erroractionprefence = 'Stop'
 
     try {
         if (Get-Module $buildInfo.ModuleName) {
@@ -14,8 +14,14 @@ BuildTask Clean -Stage Build -Order 0 -Definition {
             Remove-Item $buildInfo.Path.Output -Recurse -Force
         }
 
-        $null = New-Item $buildInfo.Path.Output -ItemType Directory -Force
+        $nupkg = Join-Path $buildInfo.Path.Nuget ('{0}.*.nupkg' -f $buildInfo.ModuleName)
+        if (Test-Path $nupkg) {
+            Remove-Item $nupkg
+        }
+
         $null = New-Item $buildInfo.Path.Package -ItemType Directory -Force
+        $null = New-Item $buildInfo.Path.Output -ItemType Directory -Force
+        $null = New-Item $buildInfo.Path.Nuget -ItemType Directory -Force
     } catch {
         throw
     }

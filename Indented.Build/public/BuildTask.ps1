@@ -15,7 +15,6 @@ function BuildTask {
 
         # The stage during which the task will be invoked.
         [Parameter(Mandatory = $true)]
-        [ValidateSet('Setup', 'Build', 'Test', 'Release', 'Publish')]
         [String]$Stage,
 
         # Where the task should appear in the build order respective to the stage.

@@ -1,4 +1,4 @@
-task CreateNuspec {
+BuildTask CreateNuspec -Stage Pack -Order 2 -Definition {
     Add-Type -AssemblyName System.Xml.Linq
 
     [String]$path = New-Item (Join-Path $buildInfo.Path.Output 'pack') -ItemType Directory

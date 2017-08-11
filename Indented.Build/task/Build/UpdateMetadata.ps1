@@ -1,4 +1,4 @@
-task UpdateMetadata {
+BuildTask UpdateMetadata -Stage Build -Order 5 -Definition {
     try {
         $path = $buildInfo.Path.Manifest
 
