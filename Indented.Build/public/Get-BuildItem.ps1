@@ -65,7 +65,21 @@ function Get-BuildItem {
     } elseif ($Type -eq 'Static') {
         [String[]]$exclude = $itemTypes.Values + '*.config', 'test*', 'doc', 'help', '.build*.ps1'
 
-        Get-ChildItem -Exclude $exclude
+        # Should work, fails when testing.
+        # Get-ChildItem -Exclude $exclude
+        foreach ($item in Get-ChildItem) {
+            $shouldExclude = $false
+
+            foreach ($exclusion in $exclude) {
+                if ($item.Name -like $exclusion) {
+                    $shouldExclude = $true
+                }
+            }
+            
+            if (-not $shouldExclude) {
+                $item
+            }
+        }
     }
 
     Pop-Location

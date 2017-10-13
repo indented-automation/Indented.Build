@@ -31,7 +31,7 @@ The executor can only be used with PowerShell 5.0 or higher.
    - [x] TestAttributeSyntax
    - [x] CopyModuleFiles
    - [x] Merge
-   - [ ] CompileClass
+   - [x] CompileClass
      * When module\class\*.cs exist, and module\class\*.*proj and module\class\*.sln do not exist.
    - [x] BuildProject
      * When module\class\*.*proj exists and module\class\*.sln does not.

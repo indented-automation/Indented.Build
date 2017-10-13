@@ -6,7 +6,7 @@ BuildTask Merge -Stage Build -Order 4 -Definition {
 
     $buildInfo | Get-BuildItem -Type ShouldMerge | ForEach-Object {
         $functionDefinition = Get-Content $_.FullName | ForEach-Object {
-            if ($_ -match '^using') {
+            if ($_ -match '^using (namespace|assembly)') {
                 $usingStatements.Add($_)
             } else {
                 $_.TrimEnd()

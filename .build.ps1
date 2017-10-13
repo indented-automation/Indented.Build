@@ -58,18 +58,34 @@ function GetProjectRoot {
 }
 
 function GetSourcePath {
+    [CmdletBinding()]
     [OutputType([System.IO.DirectoryInfo])]
     param (
         [Parameter(Mandatory = $true)]
         [System.IO.DirectoryInfo]$ProjectRoot
     )
 
-    if ((Test-Path '*.psd1') -and ((Get-Item '*.psd1').BaseName -eq (Get-Item $pwd).Name)) {
-        [System.IO.DirectoryInfo]$pwd.Path
-    } elseif (Test-Path (Join-Path $ProjectRoot $ProjectRoot.Name)) {
-        [System.IO.DirectoryInfo](Join-Path $ProjectRoot $ProjectRoot.Name)
-    } else {
+    try {
+        Push-Location $ProjectRoot
+
+        # Try and find a unique match by searching for ps1 files
+        $sourcePath = Get-ChildItem .\*\*.psd1 |
+            Where-Object { $_.BaseName -eq $_.Directory.Name } |
+            ForEach-Object { $_.Directory }
+
+        if (@($sourcePath).Count -eq 1) {
+            return $sourcePath
+        } else {
+            if (Test-Path (Join-Path $ProjectRoot $ProjectRoot.Name)) {
+                return [System.IO.DirectoryInfo](Join-Path $ProjectRoot $ProjectRoot.Name)
+            }
+        }
+
         throw 'Unable to determine the source path'
+    } catch {
+        $pscmdlet.ThrowTerminatingError($_)
+    } finally {
+        Pop-Location
     }
 }
 
@@ -77,41 +93,36 @@ function GetVersion {
     [OutputType([Version])]
     param (
         # The path to the a module manifest file.
-        [ValidateScript( { Test-Path $_ -PathType Leaf } )]
         [String]$Path
     )
 
-    if (Test-Path $Path) {
+    if ($Path -and (Test-Path $Path)) {
         $manifestContent = Import-PowerShellDataFile $Path
         $versionString = $manifestContent.ModuleVersion
 
         $version = [Version]'0.0.0'
         if ([Version]::TryParse($versionString, [Ref]$version)) {
-            return $version
+            if ($version.Build -eq -1) {
+                return [Version]::new($version.Major, $version.Minor, 0)
+            } else {
+                return $version
+            }
         }
     }
 
     return [Version]'1.0.0'
 }
 
-function TestAdministrator {
-    [OutputType([Boolean])]
-    param ( )
-
-    ([System.Security.Principal.WindowsPrincipal][System.Security.Principal.WindowsIdentity]::GetCurrent()).
-        IsInRole([System.Security.Principal.WindowsBuiltInRole]'Administrator')
-}
-
 function UpdateVersion {
     [OutputType([Version])]
     param (
+        # The current version number.
+        [Parameter(Position = 1, ValueFromPipeline = $true)]
+        [Version]$Version,
+
         # The release type.
         [ValidateSet('Build', 'Minor', 'Major')]
-        [String]$ReleaseType = 'Build',
-
-        # The current version number.
-        [Parameter(ValueFromPipeline = $true)]
-        [Version]$Version
+        [String]$ReleaseType = 'Build'
     )
 
     process {
@@ -206,7 +217,7 @@ function Enable-Metadata {
         }
     } elseif ($existingValue.Count -eq 0) {
         # Item not found
-        Write-Warning "Can't find disabled property '$PropertyName' in $Path"
+        Write-Warning "Cannot find disabled property '$PropertyName' in $Path"
         $false
     } else {
         # Ambiguous match
@@ -256,8 +267,7 @@ function Get-BuildInfo {
             ReleaseType           = $ReleaseType
             BuildSystem           = GetBuildSystem
             Version               = '1.0.0'
-            CodeCoverageThreshold = 0.9
-            IsAdministrator       = TestAdministrator
+            CodeCoverageThreshold = 0.8
             Repository            = [PSCustomObject]@{
                 Branch                = GetBranchName
                 LastCommitMessage     = GetLastCommitMessage
@@ -531,7 +541,7 @@ task Merge {
 
     $buildInfo | Get-BuildItem -Type ShouldMerge | ForEach-Object {
         $functionDefinition = Get-Content $_.FullName | ForEach-Object {
-            if ($_ -match '^using') {
+            if ($_ -match '^using (namespace|assembly)') {
                 $usingStatements.Add($_)
             } else {
                 $_.TrimEnd()
@@ -638,42 +648,30 @@ task UpdateMetadata {
 }
 
 task UpdateMarkdownHelp -If (Get-Module platyPS -ListAvailable) {
-    $exceptionMessage = powershell.exe -NoProfile -Command ('
-        try {{
-            $moduleInfo = Import-Module "{0}" -ErrorAction Stop -PassThru
-            if ($moduleInfo.ExportedCommands.Count -gt 0) {{
-                New-MarkdownHelp -Module "{1}" -OutputFolder "{2}\help" -Force
-            }}
+    Start-Job -ArgumentList $buildInfo -ScriptBlock {
+        param (
+            $buildInfo
+        )
 
-            exit 0
-        }} catch {{
-            $_.Exception.Message
-
-            exit 1
-        }}
-    ' -f $buildInfo.Path.Manifest.FullName, $buildInfo.ModuleName, $buildInfo.Path.Source)
-
-    if ($lastexitcode -ne 0) {
-        throw $exceptionMessage
-    }
+        try {
+            $moduleInfo = Import-Module $buildInfo.Path.Manifest.FullName -ErrorAction Stop -PassThru
+            if ($moduleInfo.ExportedCommands.Count -gt 0) {
+                New-MarkdownHelp -Module $buildInfo.ModuleName -OutputFolder (Join-Path $buildInfo.Path.Source 'help') -Force
+            }
+        } catch {
+            throw            
+        }
+    } | Receive-Job -Wait -ErrorAction Stop
 }
 
 task TestModuleImport {
-    $exceptionMessage = powershell.exe -NoProfile -Command "
-        try {
-            Import-Module '$($buildInfo.Path.Manifest.FullName)' -ErrorAction Stop
+    Start-Job -ArgumentList $buildInfo -ScriptBlock {
+        param (
+            $buildInfo
+        )
 
-            exit 0
-        } catch {
-            `$_.Exception.Message
-
-            exit 1
-        }
-    "
-
-    if ($lastexitcode -ne 0) {
-        throw $exceptionMessage
-    }
+        Import-Module $buildInfo.Path.Manifest.FullName -ErrorAction Stop
+    } | Receive-Job -Wait -ErrorAction Stop
 }
 
 task PSScriptAnalyzer -If (Get-Module PSScriptAnalyzer -ListAvailable) {
@@ -700,7 +698,7 @@ task TestModule {
         throw 'The PS project must have tests!'    
     }
 
-    $invokePester = {
+    $pester = Start-Job -ArgumentList $buildInfo -ScriptBlock {
         param (
             $buildInfo
         )
@@ -721,13 +719,8 @@ task TestModule {
             PassThru     = $true
         }
         Invoke-Pester @params
-    }
-    if ($buildInfo.IsAdministrator -and $buildInfo.BuildSystem -eq 'Unknown') {
-        $pester = Invoke-Command $invokePester -ArgumentList $buildInfo -ComputerName $env:COMPUTERNAME
-    } else {
-        $pester = & $invokePester $buildInfo
-    }
-    
+    } | Receive-Job -Wait
+
     $path = Join-Path $buildInfo.Path.Output 'pester-output.xml'
     $pester | Export-CliXml $path
 }

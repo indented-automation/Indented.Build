@@ -12,7 +12,7 @@ function GetSourcePath {
         # Try and find a unique match by searching for ps1 files
         $sourcePath = Get-ChildItem .\*\*.psd1 |
             Where-Object { $_.BaseName -eq $_.Directory.Name } |
-            ForEach-Object { $_.Directory.FullName }
+            ForEach-Object { $_.Directory }
 
         if (@($sourcePath).Count -eq 1) {
             return $sourcePath

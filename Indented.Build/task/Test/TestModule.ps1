@@ -3,7 +3,7 @@ BuildTask TestModule -Stage Test -Order 2 -Definition {
         throw 'The PS project must have tests!'    
     }
 
-    $invokePester = {
+    $pester = Start-Job -ArgumentList $buildInfo -ScriptBlock {
         param (
             $buildInfo
         )
@@ -24,13 +24,8 @@ BuildTask TestModule -Stage Test -Order 2 -Definition {
             PassThru     = $true
         }
         Invoke-Pester @params
-    }
-    if ($buildInfo.IsAdministrator -and $buildInfo.BuildSystem -eq 'Unknown') {
-        $pester = Invoke-Command $invokePester -ArgumentList $buildInfo -ComputerName $env:COMPUTERNAME
-    } else {
-        $pester = & $invokePester $buildInfo
-    }
-    
+    } | Receive-Job -Wait
+
     $path = Join-Path $buildInfo.Path.Output 'pester-output.xml'
     $pester | Export-CliXml $path
 }

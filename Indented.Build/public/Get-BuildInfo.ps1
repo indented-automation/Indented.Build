@@ -39,7 +39,6 @@ function Get-BuildInfo {
             BuildSystem           = GetBuildSystem
             Version               = '1.0.0'
             CodeCoverageThreshold = 0.9
-            IsAdministrator       = TestAdministrator
             Repository            = [PSCustomObject]@{
                 Branch                = GetBranchName
                 LastCommitMessage     = GetLastCommitMessage
