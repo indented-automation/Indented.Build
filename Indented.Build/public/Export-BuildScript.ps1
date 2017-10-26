@@ -62,11 +62,11 @@ function Export-BuildScript {
 
     $tasks = $BuildInfo | Get-BuildTask | Sort-Object {
         switch ($_.Stage) {
-            'Setup'   { 1 }
-            'Build'   { 2 }
-            'Test'    { 3 }
-            'Pack'    { 4 }
-            'Publish' { 5 }
+            'Setup'   { 1; break }
+            'Build'   { 2; break }
+            'Test'    { 3; break }
+            'Pack'    { 4; break }
+            'Publish' { 5; break }
         }
     }, Order, Name
 

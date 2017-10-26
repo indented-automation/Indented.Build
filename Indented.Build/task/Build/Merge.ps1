@@ -16,7 +16,7 @@ BuildTask Merge -Stage Build -Order 4 -Definition {
         $writer.WriteLine()
     }
 
-    if (Test-Path 'InitializeModule.ps1') {
+    if (Test-Path (Join-Path $buildInfo.Path.Source 'InitializeModule.ps1')) {
         $writer.WriteLine('InitializeModule')
     }
 
