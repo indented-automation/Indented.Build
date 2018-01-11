@@ -51,37 +51,6 @@ InModuleScope Indented.Build {
             }
         }
 
-        Context 'ReleaseType switching' {
-            It 'ReleaseType: Major: When the commit message includes major release' {
-                Mock GetLastCommitMessage { 'major release' }
-
-                (Get-BuildInfo).ReleaseType | Should -Be 'Major'
-            }
-
-            It 'ReleaseType: Minor: When commit message includes release' {
-                Mock GetLastCommitMessage { 'release' }
-
-                (Get-BuildInfo).ReleaseType | Should -Be 'Minor'
-            }
-
-            It 'ReleaseType: Build: By default' {
-                Mock GetLastCommitMessage { 'Commit message' }
-
-                (Get-BuildInfo).ReleaseType | Should -Be 'Build'
-            }
-
-            It 'ReleaseType: By argument: When argument is supplied' {
-                Mock GetLastCommitMessage { 'major release' }
-
-                (Get-BuildInfo -ReleaseType 'Build').ReleaseType | Should -Be 'Build'
-                (Get-BuildInfo -ReleaseType 'Minor').ReleaseType | Should -Be 'Minor'
-
-                Mock GetLastCommitMessage { 'release' }
-
-                (Get-BuildInfo -ReleaseType 'Major').ReleaseType | Should -Be 'Major'
-            }
-        }
-
         Context 'Paths affected by project root' {
             It 'Path.Package: Is "ProjectRoot\Version": When the ProjectRoot name and the ModuleName are equal' {
                 Mock GetProjectRoot { 

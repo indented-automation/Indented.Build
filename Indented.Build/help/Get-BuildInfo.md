@@ -64,7 +64,7 @@ Accept wildcard characters: False
 ```
 
 ### -Path
-Generate build informatio for the specified path.
+Generate build information for the specified path.
 
 ```yaml
 Type: String

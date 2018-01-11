@@ -2,9 +2,6 @@ BuildTask CreateNupkg -Stage Pack -Order 3 -Definition {
     $path = [System.IO.Path]::Combine($buildInfo.Path.Output, 'pack', $buildInfo.ModuleName)
 
     # Add module content
-    Write-Host $path
-    Write-Host $buildInfo.Path.Package
-
     $null = New-Item $path -ItemType Directory -Force
     Copy-Item $buildInfo.Path.Package -Destination $path -Recurse
     $null = New-Item (Join-Path $path 'tools') -ItemType Directory
@@ -24,7 +21,7 @@ BuildTask CreateNupkg -Stage Pack -Order 3 -Definition {
     # chocolateyInstall.ps1
     '& "$psscriptroot\install.ps1"' | Out-File (Join-Path $path 'tools\chocolateyInstall.ps1') -Encoding UTF8
 
-    Push-Location $path
+    Push-Location (Join-Path $buildInfo.Path.Output 'pack')
 
     nuget pack -OutputDirectory $buildInfo.Path.Nuget
 

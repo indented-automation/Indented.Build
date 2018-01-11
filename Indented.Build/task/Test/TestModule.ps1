@@ -11,7 +11,7 @@ BuildTask TestModule -Stage Test -Order 2 -Definition {
         $path = Join-Path $buildInfo.Path.Source 'test*'
 
         if (Test-Path (Join-Path $path 'stub')) {
-            Get-ChildItem (Join-Path $path 'stub') -Filter *.psm1 | ForEach-Object {
+            Get-ChildItem (Join-Path $path 'stub') -Filter *.psm1 -Recurse -Depth 1 | ForEach-Object {
                 Import-Module $_.FullName -Global -WarningAction SilentlyContinue
             }
         }

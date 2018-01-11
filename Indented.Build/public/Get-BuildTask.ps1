@@ -12,7 +12,7 @@ function Get-BuildTask {
     [OutputType('BuildTask')]
     param (
         # A build information object used to determine which tasks will apply to the current build.
-        [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true, ParameterSetName = 'ForBuild')]
+        [Parameter(Mandatory, Position = 1, ValueFromPipeline, ParameterSetName = 'ForBuild')]
         [PSTypeName('BuildInfo')]
         [PSObject]$BuildInfo,
 
@@ -20,7 +20,7 @@ function Get-BuildTask {
         [String]$Name = '*',
 
         # List all available tasks, irrespective of conditions applied to the task.
-        [Parameter(Mandatory = $true, ParameterSetName = 'List')]        
+        [Parameter(Mandatory, ParameterSetName = 'List')]        
         [Switch]$ListAvailable
     )
 

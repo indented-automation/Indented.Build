@@ -68,7 +68,7 @@ BuildTask UpdateMetadata -Stage Build -Order 5 -Definition {
         if (Enable-Metadata $path -PropertyName ProjectUri) {
             # Attempt to parse the project URI from the list of upstream repositories
             [String]$pushOrigin = (git remote -v) -like 'origin*(push)'
-            if ($pushOrigin -match 'origin\s+(?<ProjectUri>\S+).git') {
+            if ($pushOrigin -match 'origin\s+(?<ProjectUri>https?://\S+).git') {
                 Update-Metadata $path -PropertyName ProjectUri -Value $matches.ProjectUri
             }
         }

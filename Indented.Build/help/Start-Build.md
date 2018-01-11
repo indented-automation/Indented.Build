@@ -12,7 +12,7 @@ Start a build.
 ## SYNTAX
 
 ```
-Start-Build [[-BuildType] <String[]>] [[-ReleaseType] <String>] [[-BuildInfo] <PSObject>]
+Start-Build [[-BuildType] <String[]>] [[-ReleaseType] <String>] [[-BuildInfo] <PSObject[]>]
  [[-ScriptName] <String>]
 ```
 
@@ -68,7 +68,7 @@ Accept wildcard characters: False
 {{Fill BuildInfo Description}}
 
 ```yaml
-Type: PSObject
+Type: PSObject[]
 Parameter Sets: (All)
 Aliases: 
 

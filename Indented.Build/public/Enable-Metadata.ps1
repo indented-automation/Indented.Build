@@ -23,7 +23,7 @@ filter Enable-Metadata {
     [OutputType([Boolean])]
     param (
         # A valid metadata file or string containing the metadata.
-        [Parameter(ValueFromPipelineByPropertyName = $true, Position = 0)]
+        [Parameter(ValueFromPipelineByPropertyName, Position = 0)]
         [ValidateScript( { Test-Path $_ -PathType Leaf } )]
         [Alias("PSPath")]
         [String]$Path,

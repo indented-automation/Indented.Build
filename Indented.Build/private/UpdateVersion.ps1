@@ -6,7 +6,7 @@ function UpdateVersion {
         [Version]$Version,
 
         # The release type.
-        [ValidateSet('Build', 'Minor', 'Major')]
+        [ValidateSet('Build', 'Minor', 'Major', 'None')]
         [String]$ReleaseType = 'Build'
     )
 
@@ -15,6 +15,7 @@ function UpdateVersion {
             'Major' { ($Version.Major + 1), 0, 0 }
             'Minor' { $Version.Major, ($Version.Minor + 1), 0 }
             'Build' { $Version.Major, $Version.Minor, ($Version.Build + 1) }
+            'None'  { return $Version }
         }
         New-Object Version($arguments)
     }

@@ -14,7 +14,7 @@ function Export-BuildScript {
     [OutputType([String])]
     param (
         # The build information object is used to determine which tasks are applicable.
-        [Parameter(ValueFromPipeline = $true)]
+        [Parameter(ValueFromPipeline)]
         [PSTypeName('BuildInfo')]
         [PSObject]$BuildInfo = (Get-BuildInfo),
 
@@ -29,10 +29,49 @@ function Export-BuildScript {
         $BuildInfo.BuildSystem = $BuildSystem
     }
 
-    $script = New-Object StringBuilder 
+    $script = [StringBuilder]::new()
+    $null = $script.AppendLine('param (').
+                    AppendLine('    [PSTypeName("BuildInfo")]').
+                    AppendLine('    [ValidateCount(1, 1)]').
+                    AppendLine('    [PSObject[]]$BuildInfo').
+                    AppendLine(')').
+                    AppendLine()
+
+    $tasks = $BuildInfo | Get-BuildTask | Sort-Object {
+        switch ($_.Stage) {
+            'Setup'   { 1; break }
+            'Build'   { 2; break }
+            'Test'    { 3; break }
+            'Pack'    { 4; break }
+            'Publish' { 5; break }
+        }
+    }, Order, Name
+
+    # Build the wrapper tasks and insert the block at the top of the script
+    $taskSets = [StringBuilder]::new()
+    # Add a default task set
+    $null = $taskSets.AppendLine('task default Setup,').
+                      AppendLine('             Build,').
+                      AppendLine('             Test,').
+                      AppendLine('             Pack').
+                      AppendLine()
+
+    $tasks | Group-Object Stage | ForEach-Object {
+        $indentLength = 'task '.Length + $_.Name.Length
+        $null = $taskSets.AppendFormat('task {0} {1}', $_.Name, $_.Group[0].Name)
+        foreach ($task in $_.Group | Select-Object -Skip 1) {
+            $null = $taskSets.Append(',').
+                              AppendLine().
+                              AppendFormat('{0} {1}', (' ' * $indentLength), $task.Name)
+        }
+        $null = $taskSets.AppendLine().
+                          AppendLine()
+    }
+    $null = $script.Append($taskSets.ToString())
 
     # Add supporting functions to create the BuildInfo object.
-    (Get-Command Get-BuildInfo).ScriptBlock.Ast.FindAll( {
+    (Get-Command Get-BuildInfo).ScriptBlock.Ast.FindAll(
+        {
             param ( $ast )
 
             $ast -is [Management.Automation.Language.CommandAst]
@@ -53,46 +92,37 @@ function Export-BuildScript {
         }
     
     'Enable-Metadata', 'Get-BuildInfo', 'Get-BuildItem' | ForEach-Object { 
-        $null = $script.AppendFormat('function {0} ', $_).
-                        AppendLine('{').
+        $null = $script.AppendFormat('function {0} {{', $_).
                         Append((Get-Command $_).Definition).
                         AppendLine('}').
                         AppendLine()
     }
 
-    $tasks = $BuildInfo | Get-BuildTask | Sort-Object {
-        switch ($_.Stage) {
-            'Setup'   { 1; break }
-            'Build'   { 2; break }
-            'Test'    { 3; break }
-            'Pack'    { 4; break }
-            'Publish' { 5; break }
-        }
-    }, Order, Name
+    # Add a generic task which allows BuildInfo to be retrieved
+    $null = $script.AppendLine('task GetBuildInfo {').
+                    AppendLine('    Get-BuildInfo').
+                    AppendLine('}').
+                    AppendLine()
 
-    # Fill BuildInfo
-    $null = $script.AppendLine('$buildInfo = Get-BuildInfo')
-
-    # Build the wrapper tasks and insert the block at the top of the script
-    $taskSets = New-Object StringBuilder
-    # Add a default task set
-    $null = $taskSets.AppendLine('task default Setup,').
-                      AppendLine('             Build,').
-                      AppendLine('             Test').
-                      AppendLine()
-
-    $tasks | Group-Object Stage | ForEach-Object {
-        $indentLength = 'task '.Length + $_.Name.Length
-        $null = $taskSets.AppendFormat('task {0} {1}', $_.Name, $_.Group[0].Name)
-        foreach ($task in $_.Group | Select-Object -Skip 1) {
-            $null = $taskSets.Append(',').
-                              AppendLine().
-                              AppendFormat('{0} {1}', (' ' * $indentLength), $task.Name)
-        }
-        $null = $taskSets.AppendLine().
-                          AppendLine()
-    }
-    $null = $script.Insert(0, $taskSets.ToString())
+    # Add a task that allows all all build jobs within the current project to run
+    $null = $script.AppendLine('task BuildAll {').
+                    AppendLine('    [String[]]$task = ${*}.Task.Name').
+                    AppendLine().
+                    AppendLine('    # Re-submit the build request without the BuildAll task').
+                    AppendLine('    if ($task.Count -eq 1 -and $task[0] -eq "BuildAll") {').
+                    AppendLine('        $task = "default"').
+                    AppendLine('    } else {').
+                    AppendLine('        $task = $task -ne "BuildAll"').
+                    AppendLine('    }').
+                    AppendLine().
+                    AppendLine('    Get-BuildInfo | ForEach-Object {').
+                    AppendLine('        Write-Host').
+                    AppendLine('        "Building {0} ({1})" -f $_.ModuleName, $_.Version | Write-Host -ForegroundColor Green').
+                    AppendLine('        Write-Host').
+                    AppendLine('        Invoke-Build -BuildInfo $_ -Task $task').
+                    AppendLine('    }').
+                    AppendLine('}').
+                    AppendLine()
 
     $tasks | ForEach-Object {
         $null = $script.AppendFormat('task {0}', $_.Name)

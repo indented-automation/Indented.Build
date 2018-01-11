@@ -1,5 +1,4 @@
 function Get-BuildItem {
-
     <#
     .SYNOPSIS
         Get source items.
@@ -16,12 +15,12 @@ function Get-BuildItem {
         #
         #   ShouldMerge - *.ps1 files from enum*, class*, priv*, pub* and InitializeModule if present.
         #   Static      - Files which are not within a well known top-level folder. Captures help content in en-US, format files, configuration files, etc.
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory)]
         [ValidateSet('ShouldMerge', 'Static')]
         [String]$Type,
 
         # BuildInfo is used to determine the source path.
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [Parameter(Mandatory, ValueFromPipeline)]
         [PSTypeName('BuildInfo')]
         [PSObject]$BuildInfo,
 
@@ -31,7 +30,7 @@ function Get-BuildItem {
 
     Push-Location $buildInfo.Path.Source
 
-    $itemTypes = @{
+    $itemTypes = [Ordered]@{
         enumeration    = 'enum*'
         class          = 'class*'
         private        = 'priv*'

@@ -10,11 +10,11 @@ function BuildTask {
     [OutputType('BuildTask')]
     param (
         # The name of the task.
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory)]
         [String]$Name,
 
         # The stage during which the task will be invoked.
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory)]
         [String]$Stage,
 
         # Where the task should appear in the build order respective to the stage.
@@ -24,7 +24,7 @@ function BuildTask {
         [ScriptBlock]$If = { $true },
 
         # The task implementation.
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory)]
         [ScriptBlock]$Definition
     )
 

@@ -17,39 +17,41 @@ filter Start-Build {
         [String[]]$BuildType = @('Setup', 'Build', 'Test'),
 
         # The release type to create.
-        [ValidateSet('Build', 'Minor', 'Major')]
+        [ValidateSet('Build', 'Minor', 'Major', 'None')]
         [String]$ReleaseType = 'Build',
 
-        [Parameter(ValueFromPipeline = $true)]
+        [Parameter(ValueFromPipeline)]
         [PSTypeName('BuildInfo')]
-        [PSObject]$BuildInfo = (Get-BuildInfo -BuildType $BuildType -ReleaseType $ReleaseType),
+        [PSObject[]]$BuildInfo = (Get-BuildInfo -BuildType $BuildType -ReleaseType $ReleaseType),
 
         [String]$ScriptName = '.build.ps1'
     )
 
-    try {
-        # If a build script exists in the project root, use it.
-        if (Test-Path (Join-Path $buildInfo.Path.ProjectRoot $ScriptName)) {
-            $buildScript = Join-Path $buildInfo.Path.ProjectRoot $ScriptName
-        } else {
-            # Otherwise assume the project contains more than one module and create a module specific script.
-            $buildScript = Join-Path $buildInfo.Path.Source $ScriptName
-        }
+    foreach ($instance in $BuildInfo) {
+        try {
+                # If a build script exists in the project root, use it.
+            if (Test-Path (Join-Path $instance.Path.ProjectRoot $ScriptName)) {
+                $buildScript = Join-Path $instance.Path.ProjectRoot $ScriptName
+            } else {
+                # Otherwise assume the project contains more than one module and create a module specific script.
+                $buildScript = Join-Path $instance.Path.Source $ScriptName
+            }
 
-        # Remove the script if it is created by this process. Export-BuildScript can be used to create a persistent script.
-        $shouldClean = $false
-        if (-not (Test-Path $buildScript)) {
-            $BuildInfo | Export-BuildScript -Path $buildScript
-            $shouldClean = $true
-        }
+            # Remove the script if it is created by this process. Export-BuildScript can be used to create a persistent script.
+            $shouldClean = $false
+            if (-not (Test-Path $buildScript)) {
+                $instance | Export-BuildScript -Path $buildScript
+                $shouldClean = $true
+            }
 
-        Import-Module InvokeBuild -Global
-        Invoke-Build -Task $BuildType -File $buildScript
-    } catch {
-        throw
-    } finally {
-        if ($shouldClean) {
-            Remove-Item $buildScript
+            Import-Module InvokeBuild -Global
+            Invoke-Build -Task $BuildType -File $buildScript -BuildInfo $instance
+        } catch {
+            throw
+        } finally {
+            if ($shouldClean) {
+                Remove-Item $buildScript
+            }
         }
     }
 }
