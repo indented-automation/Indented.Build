@@ -27,6 +27,10 @@ InModuleScope Indented.Build {
             } | Add-Member -TypeName 'BuildInfo' -PassThru
         }
 
+        BeforeEach {
+            $Script:buildTaskCache = $null
+        }
+
         It 'BuildTask: Lists compatible tasks: When BuildInfo is supplied and the task is compatible' {
             $buildTasks = Get-BuildTask -BuildInfo $buildInfo
             @($buildTasks).Count | Should -Be 1

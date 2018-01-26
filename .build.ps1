@@ -1,8 +1,16 @@
+param (
+    [PSTypeName("BuildInfo")]
+    [ValidateCount(1, 1)]
+    [PSObject[]]$BuildInfo
+)
+
 task default Setup,
              Build,
-             Test
+             Test,
+             Pack
 
-task Setup InstallRequiredModules,
+task Setup SetBuildInfo,
+           InstallRequiredModules,
            UpdateAppVeyorVersion
 
 task Build Clean,
@@ -16,15 +24,16 @@ task Build Clean,
 task Test TestModuleImport,
           PSScriptAnalyzer,
           TestModule,
-          AddAppveyorCommitMessage,
-          UploadAppVeyorTestResults,
-          ValidateTestResults
+          ValidateTestResults,
+          CreateCodeHealthReport
 
-task Pack CreateNuspec,
+task Pack DownloadNuget,
+          CreateNuspec,
           CreateNupkg
 
 task Publish UpdateVersion,
-             PublishToCurrentUser
+             PublishToCurrentUser,
+             PublishToPSGallery
 
 function GetBranchName {
     [OutputType([String])]
@@ -54,26 +63,26 @@ function GetProjectRoot {
     [OutputType([System.IO.DirectoryInfo])]
     param ( )
 
-    return [System.IO.DirectoryInfo](Get-Item (git rev-parse --show-toplevel)).FullName
+    [System.IO.DirectoryInfo](Get-Item (git rev-parse --show-toplevel)).FullName
 }
 
 function GetSourcePath {
     [CmdletBinding()]
-    [OutputType([System.IO.DirectoryInfo])]
+    [OutputType([System.IO.DirectoryInfo], [System.IO.DirectoryInfo[]])]
     param (
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory, ValueFromPipeline)]
         [System.IO.DirectoryInfo]$ProjectRoot
     )
 
     try {
         Push-Location $ProjectRoot
 
-        # Try and find a unique match by searching for ps1 files
+        # Try and find a match by searching for psd1 files
         $sourcePath = Get-ChildItem .\*\*.psd1 |
             Where-Object { $_.BaseName -eq $_.Directory.Name } |
             ForEach-Object { $_.Directory }
 
-        if (@($sourcePath).Count -eq 1) {
+        if ($sourcePath) {
             return $sourcePath
         } else {
             if (Test-Path (Join-Path $ProjectRoot $ProjectRoot.Name)) {
@@ -121,7 +130,7 @@ function UpdateVersion {
         [Version]$Version,
 
         # The release type.
-        [ValidateSet('Build', 'Minor', 'Major')]
+        [ValidateSet('Build', 'Minor', 'Major', 'None')]
         [String]$ReleaseType = 'Build'
     )
 
@@ -130,13 +139,13 @@ function UpdateVersion {
             'Major' { ($Version.Major + 1), 0, 0 }
             'Minor' { $Version.Major, ($Version.Minor + 1), 0 }
             'Build' { $Version.Major, $Version.Minor, ($Version.Build + 1) }
+            'None'  { return $Version }
         }
         New-Object Version($arguments)
     }
 }
 
 function Enable-Metadata {
-
     <#
     .SYNOPSIS
         Enable a metadata property which has been commented out.
@@ -161,7 +170,7 @@ function Enable-Metadata {
     [OutputType([Boolean])]
     param (
         # A valid metadata file or string containing the metadata.
-        [Parameter(ValueFromPipelineByPropertyName = $true, Position = 0)]
+        [Parameter(ValueFromPipelineByPropertyName, Position = 0)]
         [ValidateScript( { Test-Path $_ -PathType Leaf } )]
         [Alias("PSPath")]
         [String]$Path,
@@ -227,7 +236,6 @@ function Enable-Metadata {
 }
 
 function Get-BuildInfo {
-
     <#
     .SYNOPSIS
         Get properties required to build the project.
@@ -248,66 +256,57 @@ function Get-BuildInfo {
         # The release type. By default the release type is Build and the build version will increment.
         #
         # If the last commit message includes the phrase "major release" the release type will be reset to Major; If the last commit meessage includes "release" the releasetype will be reset to Minor.
-        [ValidateSet('Build', 'Minor', 'Major')]
+        [ValidateSet('Build', 'Minor', 'Major', 'None')]
         [String]$ReleaseType = 'Build',
 
-        # Generate build informatio for the specified path.
+        # Generate build information for the specified path.
         [ValidateScript( { Test-Path $_ -PathType Container } )]
         [String]$Path = $pwd.Path
     )
 
     try {
         $Path = $pscmdlet.GetUnresolvedProviderPathFromPSPath($Path)
-
         Push-Location $Path
 
-        $buildInfo = [PSCustomObject]@{
-            ModuleName            = ''
-            BuildType             = $BuildType
-            ReleaseType           = $ReleaseType
-            BuildSystem           = GetBuildSystem
-            Version               = '1.0.0'
-            CodeCoverageThreshold = 0.8
-            Repository            = [PSCustomObject]@{
-                Branch                = GetBranchName
-                LastCommitMessage     = GetLastCommitMessage
-            }
-            Path                  = [PSCustomObject]@{
-                ProjectRoot           = $projectRoot = GetProjectRoot
-                Source                = GetSourcePath $projectRoot
-                SourceManifest        = ''
-                Package               = ''
-                Output                = $output = [System.IO.DirectoryInfo](Join-Path $projectRoot 'output')
-                Nuget                 = Join-Path $output 'packages'
-                Manifest              = ''
-                RootModule            = ''
-            }
-        } | Add-Member -TypeName 'BuildInfo' -PassThru
+        $projectRoot = GetProjectRoot
+        $projectRoot | GetSourcePath | ForEach-Object {
+            $buildInfo = [PSCustomObject]@{
+                ModuleName            = $moduleName = $_.Parent.GetDirectories($_.Name).Name
+                BuildType             = $BuildType
+                ReleaseType           = $ReleaseType
+                BuildSystem           = GetBuildSystem
+                Version               = '1.0.0'
+                CodeCoverageThreshold = 0.8
+                Repository            = [PSCustomObject]@{
+                    Branch                = GetBranchName
+                    LastCommitMessage     = GetLastCommitMessage
+                }
+                Path                  = [PSCustomObject]@{
+                    ProjectRoot           = $projectRoot
+                    Source                = $_
+                    SourceManifest        = Join-Path $_ ('{0}.psd1' -f $moduleName)
+                    Package               = ''
+                    Output                = $output = [System.IO.DirectoryInfo](Join-Path $projectRoot 'output')
+                    Nuget                 = Join-Path $output 'packages'
+                    Manifest              = ''
+                    RootModule            = ''
+                }
+            } | Add-Member -TypeName 'BuildInfo' -PassThru
 
-        $buildInfo.ModuleName = $buildInfo.Path.Source.Parent.GetDirectories($buildInfo.Path.Source.Name).Name
-        $buildInfo.Path.SourceManifest = Join-Path $buildInfo.Path.Source ('{0}.psd1' -f $buildInfo.ModuleName)
+            $buildInfo.Version = GetVersion $buildInfo.Path.SourceManifest | UpdateVersion -ReleaseType $ReleaseType
 
-        # Override the release type based on commit message if not explicitly defined.
-        if (-not $psboundparameters.ContainsKey('ReleaseType')) {
-            if ($buildInfo.Repository.LastCommitMessage -like '*major release*') {
-                $ReleaseType = $buildInfo.ReleaseType = 'Major'
-            } elseif ($buildInfo.Repository.LastCommitMessage -like '*release*') {
-                $ReleaseType = $buildInfo.ReleaseType = 'Minor'
+            $buildInfo.Path.Package = [System.IO.DirectoryInfo](Join-Path $buildInfo.Path.ProjectRoot $buildInfo.Version)
+            if ($buildInfo.Path.ProjectRoot.Name -ne $buildInfo.ModuleName) {
+                $buildInfo.Path.Package = [System.IO.DirectoryInfo][System.IO.Path]::Combine($buildInfo.Path.ProjectRoot, 'build', $buildInfo.ModuleName, $buildInfo.Version)
+                $buildInfo.Path.Output = [System.IO.DirectoryInfo][System.IO.Path]::Combine($buildInfo.Path.ProjectRoot, 'build', 'output', $buildInfo.ModuleName)
+                $buildInfo.Path.Nuget = [System.IO.DirectoryInfo][System.IO.Path]::Combine($buildInfo.Path.ProjectRoot, 'build', 'output', 'packages')
             }
+
+            $buildInfo.Path.Manifest = [System.IO.FileInfo](Join-Path $buildInfo.Path.Package ('{0}.psd1' -f $buildInfo.ModuleName))
+            $buildInfo.Path.RootModule = [System.IO.FileInfo](Join-Path $buildInfo.Path.Package ('{0}.psm1' -f $buildInfo.ModuleName))
+
+            $buildInfo
         }
-        $buildInfo.Version = GetVersion $buildInfo.Path.SourceManifest | UpdateVersion -ReleaseType $ReleaseType
-
-        $buildInfo.Path.Package = [System.IO.DirectoryInfo](Join-Path $buildInfo.Path.ProjectRoot $buildInfo.Version)
-        if ($buildInfo.Path.ProjectRoot.Name -ne $buildInfo.ModuleName) {
-            $buildInfo.Path.Package = [System.IO.DirectoryInfo][System.IO.Path]::Combine($buildInfo.Path.ProjectRoot, 'build', $buildInfo.ModuleName, $buildInfo.Version)
-            $buildInfo.Path.Output = [System.IO.DirectoryInfo][System.IO.Path]::Combine($buildInfo.Path.ProjectRoot, 'build', 'output', $buildInfo.ModuleName)
-            $buildInfo.Path.Nuget = [System.IO.DirectoryInfo][System.IO.Path]::Combine($buildInfo.Path.ProjectRoot, 'build', 'output', 'packages')
-        }
-
-        $buildInfo.Path.Manifest = [System.IO.FileInfo](Join-Path $buildInfo.Path.Package ('{0}.psd1' -f $buildInfo.ModuleName))
-        $buildInfo.Path.RootModule = [System.IO.FileInfo](Join-Path $buildInfo.Path.Package ('{0}.psm1' -f $buildInfo.ModuleName))
-
-        $buildInfo
     } catch {
         $pscmdlet.ThrowTerminatingError($_)
     } finally {
@@ -316,8 +315,6 @@ function Get-BuildInfo {
 }
 
 function Get-BuildItem {
-
-
     <#
     .SYNOPSIS
         Get source items.
@@ -334,12 +331,12 @@ function Get-BuildItem {
         #
         #   ShouldMerge - *.ps1 files from enum*, class*, priv*, pub* and InitializeModule if present.
         #   Static      - Files which are not within a well known top-level folder. Captures help content in en-US, format files, configuration files, etc.
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory)]
         [ValidateSet('ShouldMerge', 'Static')]
         [String]$Type,
 
         # BuildInfo is used to determine the source path.
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [Parameter(Mandatory, ValueFromPipeline)]
         [PSTypeName('BuildInfo')]
         [PSObject]$BuildInfo,
 
@@ -349,7 +346,7 @@ function Get-BuildItem {
 
     Push-Location $buildInfo.Path.Source
 
-    $itemTypes = @{
+    $itemTypes = [Ordered]@{
         enumeration    = 'enum*'
         class          = 'class*'
         private        = 'priv*'
@@ -383,13 +380,52 @@ function Get-BuildItem {
     } elseif ($Type -eq 'Static') {
         [String[]]$exclude = $itemTypes.Values + '*.config', 'test*', 'doc', 'help', '.build*.ps1'
 
-        Get-ChildItem -Exclude $exclude
+        # Should work, fails when testing.
+        # Get-ChildItem -Exclude $exclude
+        foreach ($item in Get-ChildItem) {
+            $shouldExclude = $false
+
+            foreach ($exclusion in $exclude) {
+                if ($item.Name -like $exclusion) {
+                    $shouldExclude = $true
+                }
+            }
+
+            if (-not $shouldExclude) {
+                $item
+            }
+        }
     }
 
     Pop-Location
 }
 
-$buildInfo = Get-BuildInfo
+task GetBuildInfo {
+    Get-BuildInfo
+}
+
+task BuildAll {
+    [String[]]$task = ${*}.Task.Name
+
+    # Re-submit the build request without the BuildAll task
+    if ($task.Count -eq 1 -and $task[0] -eq "BuildAll") {
+        $task = "default"
+    } else {
+        $task = $task -ne "BuildAll"
+    }
+
+    Get-BuildInfo | ForEach-Object {
+        Write-Host
+        "Building {0} ({1})" -f $_.ModuleName, $_.Version | Write-Host -ForegroundColor Green
+        Write-Host
+        Invoke-Build -BuildInfo $_ -Task $task
+    }
+}
+
+task SetBuildInfo -If (-not $Script:BuildInfo) {
+    $Script:BuildInfo = Get-BuildInfo
+}
+
 task InstallRequiredModules {
     $erroractionpreference = 'Stop'
     try {
@@ -408,7 +444,7 @@ task InstallRequiredModules {
     }
 }
 
-task UpdateAppVeyorVersion -If (Test-Path (Join-Path $buildInfo.Path.ProjectRoot 'appveyor.yml')) {
+task UpdateAppVeyorVersion -If (Test-Path (Join-Path $psscriptroot 'appveyor.yml')) {
     $versionString = '{0}.{1}.{{build}}' -f $buildInfo.Version.Major, $buildInfo.Version.Minor
 
     $path = Join-Path $buildInfo.Path.ProjectRoot 'appveyor.yml'
@@ -551,7 +587,7 @@ task Merge {
         $writer.WriteLine()
     }
 
-    if (Test-Path 'InitializeModule.ps1') {
+    if (Test-Path (Join-Path $buildInfo.Path.Source 'InitializeModule.ps1')) {
         $writer.WriteLine('InitializeModule')
     }
 
@@ -638,7 +674,7 @@ task UpdateMetadata {
         if (Enable-Metadata $path -PropertyName ProjectUri) {
             # Attempt to parse the project URI from the list of upstream repositories
             [String]$pushOrigin = (git remote -v) -like 'origin*(push)'
-            if ($pushOrigin -match 'origin\s+(?<ProjectUri>\S+).git') {
+            if ($pushOrigin -match 'origin\s+(?<ProjectUri>https?://\S+).git') {
                 Update-Metadata $path -PropertyName ProjectUri -Value $matches.ProjectUri
             }
         }
@@ -652,6 +688,14 @@ task UpdateMarkdownHelp -If (Get-Module platyPS -ListAvailable) {
         param (
             $buildInfo
         )
+
+        $path = Join-Path $buildInfo.Path.Source 'test*'
+
+        if (Test-Path (Join-Path $path 'stub')) {
+            Get-ChildItem (Join-Path $path 'stub') -Filter *.psm1 -Recurse -Depth 1 | ForEach-Object {
+                Import-Module $_.FullName -Global -WarningAction SilentlyContinue
+            }
+        }
 
         try {
             $moduleInfo = Import-Module $buildInfo.Path.Manifest.FullName -ErrorAction Stop -PassThru
@@ -669,6 +713,14 @@ task TestModuleImport {
         param (
             $buildInfo
         )
+
+        $path = Join-Path $buildInfo.Path.Source 'test*'
+
+        if (Test-Path (Join-Path $path 'stub')) {
+            Get-ChildItem (Join-Path $path 'stub') -Filter *.psm1 -Recurse -Depth 1 | ForEach-Object {
+                Import-Module $_.FullName -Global -WarningAction SilentlyContinue
+            }
+        }
 
         Import-Module $buildInfo.Path.Manifest.FullName -ErrorAction Stop
     } | Receive-Job -Wait -ErrorAction Stop
@@ -706,7 +758,7 @@ task TestModule {
         $path = Join-Path $buildInfo.Path.Source 'test*'
 
         if (Test-Path (Join-Path $path 'stub')) {
-            Get-ChildItem (Join-Path $path 'stub') -Filter *.psm1 | ForEach-Object {
+            Get-ChildItem (Join-Path $path 'stub') -Filter *.psm1 -Recurse -Depth 1 | ForEach-Object {
                 Import-Module $_.FullName -Global -WarningAction SilentlyContinue
             }
         }
@@ -723,61 +775,6 @@ task TestModule {
 
     $path = Join-Path $buildInfo.Path.Output 'pester-output.xml'
     $pester | Export-CliXml $path
-}
-
-task AddAppveyorCommitMessage -If ($buildInfo.BuildSystem -eq 'AppVeyor') {
-    # Pester
-    $pester = Invoke-Pester @params
-
-    $path = Join-Path $buildInfo.Path.Output 'pester-output.xml'
-    if (Test-Path $path) {
-        $pester = Import-CliXml $path
-
-        $params = @{
-            Message  = 'Passed {0} of {1} tests' -f $pester.PassedCount, $pester.TotalCount
-            Category = 'Information'
-        }
-        if ($pester.FailedCount -gt 0) {
-            $params.Category = 'Warning'
-        }
-        Add-AppVeyorCompilationMessage @params
-
-        if ($pester.CodeCoverage) {
-            [Double]$codeCoverage = $pester.CodeCoverage.NumberOfCommandsExecuted / $pester.CodeCoverage.NumberOfCommandsAnalyzed
-
-            $params = @{
-                Message  = '{0:P2} test coverage' -f $codeCoverage
-                Category = 'Information'
-            }
-            if ($codecoverage -lt $buildInfo.CodeCoverageThreshold) {
-                $params.Category = 'Warning'
-            }
-            Add-AppVeyorCompilationMessage @params
-        }
-    }
-
-    # Solution
-    Get-ChildItem $buildInfo.Path.Output -Filter *.dll.xml | ForEach-Object {
-        $report = [Xml](Get-Content $_.FullName -Raw)
-        $params = @{
-            Message = 'Passed {0} of {1} solution tests in {2}' -f $report.'test-run'.passed,
-                                                                    $report.'test-run'.total,
-                                                                    $report.'test-run'.'test-suite'.name
-            Category = 'Information'
-        }
-        if ([Int]$report.'test-run'.failed -gt 0) {
-            $params.Category = 'Warning'
-        }
-        Add-AppVeyorCompilationMessage @params
-    }
-}
-
-task UploadAppVeyorTestResults -If ($buildInfo.BuildSystem -eq 'AppVeyor') {
-    $path = Join-Path $buildInfo.Path.Output ('{0}.xml' -f $buildInfo.ModuleName)
-    if (Test-Path $path) {
-        $webClient = New-Object System.Net.WebClient
-        $webClient.UploadFile(('https://ci.appveyor.com/api/testresults/nunit/{0}' -f $env:APPVEYOR_JOB_ID), $path)
-    }
 }
 
 task ValidateTestResults {
@@ -822,6 +819,44 @@ task ValidateTestResults {
     if ($testsFailed) {
         throw 'Test result validation failed'
     }
+}
+
+task CreateCodeHealthReport -If (Get-Module PSCodeHealth -ListAvailable) {
+    Start-Job -ArgumentList $buildInfo -ScriptBlock {
+        param (
+            $buildInfo
+        )
+
+        $path = Join-Path $buildInfo.Path.Source 'test*'
+
+        if (Test-Path (Join-Path $path 'stub')) {
+            Get-ChildItem (Join-Path $path 'stub') -Filter *.psm1 -Recurse -Depth 1 | ForEach-Object {
+                Import-Module $_.FullName -Global -WarningAction SilentlyContinue
+            }
+        }
+
+        Import-Module $buildInfo.Path.Manifest -Global -ErrorAction Stop
+        $params = @{
+            Path           = $buildInfo.Path.RootModule
+            Recurse        = $true
+            TestsPath      = $path
+            HtmlReportPath = Join-Path $buildInfo.Path.Output ('{0}-code-health.html' -f $buildInfo.ModuleName)
+        }
+        Invoke-PSCodeHealth @params
+    } | Receive-Job -Wait
+}
+
+task DownloadNuget -If (-not (Get-Command nuget -ErrorAction SilentlyContinue)) {
+    $nuget = Join-Path $buildInfo.Path.Output 'nuget.exe'
+
+    if (-not (Test-Path $nuget)) {
+        $webClient = New-Object System.Net.WebClient
+        $webClient.DownloadFile(
+            'https://dist.nuget.org/win-x86-commandline/latest/nuget.exe',
+            $nuget
+        )
+    }
+    Set-Alias nuget $nuget -Scope Script
 }
 
 task CreateNuspec {
@@ -874,9 +909,6 @@ task CreateNupkg {
     $path = [System.IO.Path]::Combine($buildInfo.Path.Output, 'pack', $buildInfo.ModuleName)
 
     # Add module content
-    Write-Host $path
-    Write-Host $buildInfo.Path.Package
-
     $null = New-Item $path -ItemType Directory -Force
     Copy-Item $buildInfo.Path.Package -Destination $path -Recurse
     $null = New-Item (Join-Path $path 'tools') -ItemType Directory
@@ -896,7 +928,7 @@ task CreateNupkg {
     # chocolateyInstall.ps1
     '& "$psscriptroot\install.ps1"' | Out-File (Join-Path $path 'tools\chocolateyInstall.ps1') -Encoding UTF8
 
-    Push-Location $path
+    Push-Location (Join-Path $buildInfo.Path.Output 'pack')
 
     nuget pack -OutputDirectory $buildInfo.Path.Nuget
 
@@ -913,6 +945,10 @@ task PublishToCurrentUser {
         $null = New-Item $path -ItemType Directory
     }
     Copy-Item $buildInfo.Path.Package -Destination $path -Recurse -Force
+}
+
+task PublishToPSGallery -If ($null -ne $env:NuGetApiKey) {
+    Publish-Module -Path $buildInfo.Path.Package -NuGetApiKey $env:NuGetApiKey -Repository PSGallery -ErrorAction Stop
 }
 
 
