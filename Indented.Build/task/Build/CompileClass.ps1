@@ -5,7 +5,7 @@ BuildTask CompileClass -Stage Build -If { -not (Test-Path (Join-Path $buildInfo.
     $params = @{
         TypeDefinition = $typeDefinition
         OutputType     = 'Library'
-        OutputPath     = $outputPath
+        OutputAssembly = $outputPath
     }
     Add-Type @params
 }
