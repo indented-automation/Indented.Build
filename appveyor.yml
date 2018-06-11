@@ -15,9 +15,9 @@ install:
   - ps: |
       $null = Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
       Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-      Install-Module Configuration, Pester, Indented.Build
+      Install-Module Configuration, Pester, InvokeBuild
       Set-Location $env:APPVEYOR_BUILD_FOLDER\$env:APPVEYOR_PROJECT_NAME
-      Get-BuildInfo -BuildType Build
+      Invoke-Build -Task GetBuildInfo
 
 build_script:
-  - ps: Start-Build -BuildType Build
+  - ps: Invoke-Build
