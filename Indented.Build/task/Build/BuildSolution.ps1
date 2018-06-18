@@ -12,7 +12,7 @@ BuildTask BuildSolution -Stage Build -Order 3 -If { Test-Path (Join-Path $buildI
             throw 'msbuild failed'
         }
 
-        $path = (Join-Path $buildInfo.Package 'lib')
+        $path = (Join-Path $buildInfo.Path.Package 'lib')
         if (-not (Test-Path $path)) {
             $null = New-Item $path -ItemType Directory -Force
         }
