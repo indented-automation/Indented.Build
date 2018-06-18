@@ -13,7 +13,7 @@ function Get-BuildInfo {
     [CmdletBinding()]
     [OutputType('BuildInfo')]
     param (
-        # The tasks to execute, passed to Invoke-Build. BuildType is expected to be a broad description of the build, encompassing a set of tasks. 
+        # The tasks to execute, passed to Invoke-Build. BuildType is expected to be a broad description of the build, encompassing a set of tasks.
         [String[]]$BuildType = @('Setup', 'Build', 'Test'),
 
         # The release type. By default the release type is Build and the build version will increment.
