@@ -21,7 +21,7 @@ BuildTask CreateNupkg -Stage Pack -Order 3 -Definition {
     # chocolateyInstall.ps1
     '& "$psscriptroot\install.ps1"' | Out-File (Join-Path $path 'tools\chocolateyInstall.ps1') -Encoding UTF8
 
-    Push-Location (Join-Path $buildInfo.Path.Output 'pack')
+    Push-Location (Split-Path $path -Parent)
 
     nuget pack -OutputDirectory $buildInfo.Path.Nuget
 
