@@ -29,7 +29,9 @@ function Export-BuildScript {
 
     $script = [System.Text.StringBuilder]::new()
     $null = $script.AppendLine('param (').
-                    AppendLine('    [PSTypeName("BuildInfo")]').
+                    AppendLine('    [String]$ModuleName,').
+                    AppendLine().
+                    AppendLine('    [PSTypeName("Indented.BuildInfo")]').
                     AppendLine('    [ValidateCount(1, 1)]').
                     AppendLine('    [PSObject[]]$BuildInfo').
                     AppendLine(')').
@@ -89,7 +91,7 @@ function Export-BuildScript {
             }
         }
 
-    'Enable-Metadata', 'Get-BuildInfo', 'Get-BuildItem' | ForEach-Object {
+    'ConvertTo-ChocoPackage', 'Enable-Metadata', 'Get-BuildInfo', 'Get-BuildItem', 'Get-FunctionInfo' | ForEach-Object {
         $null = $script.AppendFormat('function {0} {{', $_).
                         Append((Get-Command $_).Definition).
                         AppendLine('}').

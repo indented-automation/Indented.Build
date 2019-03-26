@@ -12,7 +12,7 @@ BuildTask Merge -Stage Build -Order 4 -Definition {
             }
         }
         $writer.Write(($functionDefinition -join $buildInfo.Config.EndOfLineChar).Trim())
-        $writer.Write($buildInfo.Config.EndOfLineChar)
+        $writer.Write($buildInfo.Config.EndOfLineChar * 2)
     }
 
     if (Test-Path (Join-Path $buildInfo.Path.Source.Module 'InitializeModule.ps1')) {

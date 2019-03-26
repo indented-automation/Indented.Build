@@ -13,6 +13,8 @@ function Get-BuildInfo {
     [CmdletBinding()]
     [OutputType('Indented.BuildInfo')]
     param (
+        [String]$ModuleName = '*',
+
         # Generate build information for the specified path.
         [ValidateScript( { Test-Path $_ -PathType Container } )]
         [String]$ProjectRoot = $pwd.Path
@@ -59,5 +61,5 @@ function Get-BuildInfo {
         } catch {
             Write-Error -ErrorRecord $_
         }
-    }
+    } | Where-Object ModuleName -like $ModuleName
 }
