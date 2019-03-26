@@ -622,7 +622,7 @@ task Clean {
         }
 
         if (Test-Path $buildInfo.Path.Build.Module.Parent.FullName) {
-            Remove-Item $buildInfo.Path.Build.Parent.FullName -Recurse -Force
+            Remove-Item $buildInfo.Path.Build.Module.Parent.FullName -Recurse -Force
         }
 
         $nupkg = Join-Path $buildInfo.Path.Build.Package ('{0}.*.nupkg' -f $buildInfo.ModuleName)
@@ -630,9 +630,8 @@ task Clean {
             Remove-Item $nupkg
         }
 
-        $output = Join-Path $buildInfo.Path.Build.Output ('{0}*' -f $buildInfo.ModuleName)
-        if (Test-Path $output) {
-            Remove-Item $output
+        if (Test-Path $buildInfo.Path.Build.Output) {
+            Remove-Item $buildInfo.Path.Build.Output -Recurse -Force
         }
 
         $null = New-Item $buildInfo.Path.Build.Module -ItemType Directory -Force
@@ -898,7 +897,7 @@ task PSScriptAnalyzer -If (Get-Module PSScriptAnalyzer -ListAvailable) {
             $path = Resolve-Path (Join-Path $buildInfo.Path.Source.Module $_)
             if (Test-Path $path) {
                 Invoke-ScriptAnalyzer -Path $path -Recurse | ForEach-Object {
-                    $_
+                    $_ | Select-Object RuleName, Severity, Line, Message, ScriptName, ScriptPath
                     $_ | Export-Csv (Join-Path $buildInfo.Path.Build.Output 'psscriptanalyzer.csv') -NoTypeInformation -Append
                 }
             }
@@ -1072,7 +1071,7 @@ task CreateCodeHealthReport -If (Get-Module PSCodeHealth -ListAvailable) {
             Path           = $buildInfo.Path.Build.RootModule
             Recurse        = $true
             TestsPath      = $path
-            HtmlReportPath = Join-Path $buildInfo.Path.Build.Output ('{0}-code-health.html' -f $buildInfo.ModuleName)
+            HtmlReportPath = Join-Path $buildInfo.Path.Build.Output 'code-health.html'
         }
         Invoke-PSCodeHealth @params
     }

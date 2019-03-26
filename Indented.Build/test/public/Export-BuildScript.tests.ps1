@@ -13,7 +13,7 @@ InModuleScope Indented.Build {
                     Order      = 1
                     Stage      = 'Test'
                     Definition = ''
-                }                
+                }
                 [PSCustomObject]@{
                     Name       = 'Compile'
                     Order      = 2
@@ -26,10 +26,12 @@ InModuleScope Indented.Build {
                     Order      = 1
                     Stage      = 'Build'
                     Definition = ''
-                }                
+                }
             }
 
-            $buildInfo = [PSCustomObject]@{ } | Add-Member -TypeName 'BuildInfo' -PassThru
+            $buildInfo = [PSCustomObject]@{
+                PSTypeName = 'Indented.BuildInfo'
+            }
         }
 
         Context 'Command insertion' {
@@ -39,7 +41,6 @@ InModuleScope Indented.Build {
 
             It 'Inserts commands required by Get-BuildInfo' {
                 $script | Should -Match 'function GetBuildSystem'
-                $script | Should -Match 'function GetProjectRoot'
             }
 
             It 'Inserts Enabled-Metadata' {
@@ -58,18 +59,15 @@ InModuleScope Indented.Build {
 
         Context 'Task insertion' {
             BeforeAll {
-                $testCases = 'CreatePackage',
-                             'NUnitTest',
-                             'Merge',
-                             'Compile' |
-                    ForEach-Object {
-                        @{ Name = $_ }
-                    }
-
                 $script = Export-BuildScript -BuildInfo $buildInfo
             }
 
-            It 'Inserts the task <Name> returned by Get-BuildTask' -TestCases $testCases {
+            It 'Inserts the task <Name> returned by Get-BuildTask' -TestCases @(
+                @{ Name = 'CreatePackage' }
+                @{ Name = 'NUnitTest' }
+                @{ Name = 'Merge' }
+                @{ Name = 'Compile' }
+            ) {
                 param (
                     $Name
                 )

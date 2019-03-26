@@ -19,7 +19,7 @@ BuildTask CreateCodeHealthReport -Stage Test -If {
             Path           = $buildInfo.Path.Build.RootModule
             Recurse        = $true
             TestsPath      = $path
-            HtmlReportPath = Join-Path $buildInfo.Path.Build.Output ('{0}-code-health.html' -f $buildInfo.ModuleName)
+            HtmlReportPath = Join-Path $buildInfo.Path.Build.Output 'code-health.html'
         }
         Invoke-PSCodeHealth @params
     }

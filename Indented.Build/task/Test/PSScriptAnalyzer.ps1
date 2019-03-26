@@ -7,7 +7,7 @@ BuildTask PSScriptAnalyzer -Stage Test -Order 1 -If {
             $path = Resolve-Path (Join-Path $buildInfo.Path.Source.Module $_)
             if (Test-Path $path) {
                 Invoke-ScriptAnalyzer -Path $path -Recurse | ForEach-Object {
-                    $_
+                    $_ | Select-Object RuleName, Severity, Line, Message, ScriptName, ScriptPath
                     $_ | Export-Csv (Join-Path $buildInfo.Path.Build.Output 'psscriptanalyzer.csv') -NoTypeInformation -Append
                 }
             }

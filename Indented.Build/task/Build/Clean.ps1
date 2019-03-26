@@ -7,7 +7,7 @@ BuildTask Clean -Stage Build -Order 0 -Definition {
         }
 
         if (Test-Path $buildInfo.Path.Build.Module.Parent.FullName) {
-            Remove-Item $buildInfo.Path.Build.Parent.FullName -Recurse -Force
+            Remove-Item $buildInfo.Path.Build.Module.Parent.FullName -Recurse -Force
         }
 
         $nupkg = Join-Path $buildInfo.Path.Build.Package ('{0}.*.nupkg' -f $buildInfo.ModuleName)
@@ -15,9 +15,8 @@ BuildTask Clean -Stage Build -Order 0 -Definition {
             Remove-Item $nupkg
         }
 
-        $output = Join-Path $buildInfo.Path.Build.Output ('{0}*' -f $buildInfo.ModuleName)
-        if (Test-Path $output) {
-            Remove-Item $output
+        if (Test-Path $buildInfo.Path.Build.Output) {
+            Remove-Item $buildInfo.Path.Build.Output -Recurse -Force
         }
 
         $null = New-Item $buildInfo.Path.Build.Module -ItemType Directory -Force

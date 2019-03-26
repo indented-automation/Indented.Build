@@ -142,9 +142,8 @@ task Clean {
             Remove-Item $nupkg
         }
 
-        $output = Join-Path $buildInfo.Path.Build.Output ('{0}*' -f $buildInfo.ModuleName)
-        if (Test-Path $output) {
-            Remove-Item $output
+        if (Test-Path $buildInfo.Path.Build.Output) {
+            Remove-Item $buildInfo.Path.Build.Output -Recurse
         }
 
         $null = New-Item $buildInfo.Path.Build.Module -ItemType Directory -Force

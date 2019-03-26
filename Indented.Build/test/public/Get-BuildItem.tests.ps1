@@ -22,9 +22,12 @@ InModuleScope Indented.Build {
             $params = @{
                 BuildInfo = [PSCustomObject]@{
                     Path = [PSCustomObject]@{
-                        Source = 'TestDrive:\'
+                        Source = [PSCustomobject]@{
+                            Module = 'TestDrive:\'
+                        }
                     }
-                } | Add-Member -TypeName 'BuildInfo' -PassThru
+                    PSTypeName = 'Indented.BuildInfo'
+                }
             }
         }
 

@@ -10,6 +10,7 @@ function Get-BuildInfo {
         Get build information for the current or any child directories.
     #>
 
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
     [CmdletBinding()]
     [OutputType('Indented.BuildInfo')]
     param (

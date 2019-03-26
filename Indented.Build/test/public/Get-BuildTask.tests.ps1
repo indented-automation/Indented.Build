@@ -24,7 +24,8 @@ InModuleScope Indented.Build {
                 Path = [PSCustomObject]@{
                     Source = (Get-Item 'TestDrive:\')
                 }
-            } | Add-Member -TypeName 'BuildInfo' -PassThru
+                PSTypeName = 'Indented.BuildInfo'
+            }
         }
 
         BeforeEach {
@@ -40,8 +41,8 @@ InModuleScope Indented.Build {
         It 'BuildTask: Lists all tasks: When ListAvailable is set' {
             $buildTasks = Get-BuildTask -ListAvailable
             @($buildTasks).Count | Should -Be 2
-            $buildTasks.Name -contains 'Compatible' | Should -Be $true
-            $buildTasks.Name -contains 'NotCompatible' | Should -Be $true
+            $buildTasks.Name -contains 'Compatible' | Should -BeTrue
+            $buildTasks.Name -contains 'NotCompatible' | Should -BeTrue
         }
     }
 }

@@ -2,7 +2,7 @@ InModuleScope Indented.Build {
     Describe BuildTask {
         It 'Object: TypeName: Is BuildTask' {
             $buildTask = BuildTask -Name 'name' -Stage 'Build' -Definition { }
-            $buildTask.PSObject.TypeNames -contains 'BuildTask' | Should -Be $true
+            $buildTask.PSObject.TypeNames | Should -Contain 'Indented.BuildTask'
         }
 
         It 'Object: Has default values: When using mandatory parameters only' {
