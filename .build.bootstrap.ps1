@@ -10,17 +10,100 @@ task Build Setup,
 task Setup GetBuildInfo,
            InstallRequiredModules
 
+function Get-BuildItem {
+    <#
+    .SYNOPSIS
+        Get source items.
+    .DESCRIPTION
+        Get items from the source tree which will be consumed by the build process.
+
+        This function centralises the logic required to enumerate files and folders within a project.
+    #>
+
+    [CmdletBinding()]
+    [OutputType([System.IO.FileInfo], [System.IO.DirectoryInfo])]
+    param (
+        # Gets items by type.
+        #
+        #   ShouldMerge - *.ps1 files from enum*, class*, priv*, pub* and InitializeModule if present.
+        #   Static      - Files which are not within a well known top-level folder. Captures help content in en-US, format files, configuration files, etc.
+        [Parameter(Mandatory)]
+        [ValidateSet('ShouldMerge', 'Static')]
+        [String]$Type,
+
+        # BuildInfo is used to determine the source path.
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [PSTypeName('Indented.BuildInfo')]
+        [PSObject]$BuildInfo,
+
+        # Exclude script files containing PowerShell classes.
+        [Switch]$ExcludeClass
+    )
+
+    try {
+        Push-Location $buildInfo.Path.Source.Module
+
+        $itemTypes = [Ordered]@{
+            enumeration    = 'enum*'
+            class          = 'class*'
+            private        = 'priv*'
+            public         = 'pub*'
+            initialisation = 'InitializeModule.ps1'
+        }
+
+        if ($Type -eq 'ShouldMerge') {
+            foreach ($itemType in $itemTypes.Keys) {
+                if ($itemType -ne 'class' -or ($itemType -eq 'class' -and -not $ExcludeClass)) {
+                    Get-ChildItem $itemTypes[$itemType] -Recurse -ErrorAction SilentlyContinue |
+                        Where-Object { -not $_.PSIsContainer -and $_.Extension -eq '.ps1' -and $_.Length -gt 0 }
+                }
+            }
+        } elseif ($Type -eq 'Static') {
+            [String[]]$exclude = $itemTypes.Values + '*.config', 'test*', 'doc*', 'help', '.build*.ps1', 'build.psd1'
+
+            foreach ($item in Get-ChildItem) {
+                $shouldExclude = $false
+
+                foreach ($exclusion in $exclude) {
+                    if ($item.Name -like $exclusion) {
+                        $shouldExclude = $true
+                    }
+                }
+
+                if (-not $shouldExclude) {
+                    $item
+                }
+            }
+        }
+    } catch {
+        $pscmdlet.ThrowTerminatingError($_)
+    } finally {
+        Pop-Location
+    }
+}
+
 task GetBuildInfo {
     $Script:buildInfo = [PSCustomObject]@{
         ModuleName = 'Indented.Build'
-        Version    = [Version]'0.0.0'
+        Version    = [Version]'1.0.0'
+        Config      = [PSCustomObject]@{
+            EndOfLineChar = ([Environment]::NewLine, $config.EndOfLineChar)[$null -ne $config.EndOfLineChar]
+        }
         Path       = [PSCustomObject]@{
             ProjectRoot = $psscriptroot
-            Source      = [System.IO.DirectoryInfo]"$psscriptroot\Indented.Build"
-            Package     = [System.IO.DirectoryInfo]"$psscriptroot\0.0.0"
-            RootModule  = [System.IO.FileInfo]"$psscriptroot\0.0.0\Indented.Build.psm1"
-            Manifest    = [System.IO.FileInfo]"$psscriptroot\0.0.0\Indented.Build.psd1"
+            Source      = [PSCustomObject]@{
+                Module   = [System.IO.DirectoryInfo](Join-Path $psscriptroot 'Indented.Build')
+                Manifest = [System.IO.DirectoryInfo](Join-Path $psscriptroot 'Indented.Build\Indented.Build.psd1')
+            }
+            Build       = [PSCustomObject]@{
+                Module     = [System.IO.DirectoryInfo](Join-Path $psscriptroot 'build\Indented.Build\1.0.0')
+                Manifest   = [System.IO.FileInfo](Join-Path $psscriptroot 'build\Indented.Build\1.0.0\Indented.Build.psd1')
+                RootModule = [System.IO.FileInfo](Join-Path $psscriptroot 'build\Indented.Build\1.0.0\Indented.Build.psm1')
+                Output     = [System.IO.DirectoryInfo](Join-Path $psscriptroot 'build\output')
+                Package    = [System.IO.DirectoryInfo](Join-Path $psscriptroot 'build\packages')
+            }
         }
+        PSTypeName = 'Indented.BuildInfo'
     }
 }
 
@@ -43,75 +126,119 @@ task InstallRequiredModules {
 }
 
 task Clean {
-    if (Get-Module $buildInfo.ModuleName) {
-        Remove-Module $buildInfo.ModuleName
+    $erroractionprefence = 'Stop'
+
+    try {
+        if (Get-Module $buildInfo.ModuleName) {
+            Remove-Module $buildInfo.ModuleName
+        }
+
+        if (Test-Path $buildInfo.Path.Build.Module.Parent.FullName) {
+            Remove-Item $buildInfo.Path.Build.Module.Parent.FullName -Recurse -Force -WhatIf
+        }
+
+        $nupkg = Join-Path $buildInfo.Path.Build.Package ('{0}.*.nupkg' -f $buildInfo.ModuleName)
+        if (Test-Path $nupkg) {
+            Remove-Item $nupkg
+        }
+
+        $output = Join-Path $buildInfo.Path.Build.Output ('{0}*' -f $buildInfo.ModuleName)
+        if (Test-Path $output) {
+            Remove-Item $output
+        }
+
+        $null = New-Item $buildInfo.Path.Build.Module -ItemType Directory -Force
+        $null = New-Item $buildInfo.Path.Build.Package -ItemType Directory -Force
+
+        if (-not (Test-Path $buildInfo.Path.Build.Output)) {
+            $null = New-Item $buildInfo.Path.Build.Output -ItemType Directory -Force
+        }
+    } catch {
+        throw
     }
-
-    Get-ChildItem $buildInfo.Path.Package.Parent.FullName -Directory -ErrorAction SilentlyContinue |
-        Where-Object { [Version]::TryParse($_.Name, [Ref]$null) } |
-        Remove-Item -Recurse -Force
-
-    $null = New-Item $buildInfo.Path.Package -ItemType Directory -Force
 }
 
 task CopyModuleFiles {
-    Copy-Item (Join-Path $buildInfo.Path.Source $buildInfo.Path.Manifest.Name) $buildInfo.Path.Package -Recurse -Force
-    Copy-Item (Join-Path $buildInfo.Path.Source 'task') $buildInfo.Path.Package -Recurse -Force
+    try {
+        $buildInfo |
+            Get-BuildItem -Type Static |
+            Copy-Item -Destination $buildInfo.Path.Build.Module -Recurse -Force
+    } catch {
+        throw
+    }
 }
 
 task Merge {
-    $fileStream = [System.IO.File]::Create($buildInfo.Path.RootModule)
-    $writer = New-Object System.IO.StreamWriter($fileStream)
+    $writer = [System.IO.StreamWriter][System.IO.File]::Create($buildInfo.Path.Build.RootModule)
 
-    $usingStatements = New-Object System.Collections.Generic.List[String]
+    $usingStatements = [System.Collections.Generic.HashSet[String]]::new()
 
-    foreach ($name in 'enumeration', 'private', 'public') {
-        Get-ChildItem (Join-Path $buildInfo.Path.Source $name) -Filter *.ps1 -File -Recurse | ForEach-Object {
-            $functionDefinition = Get-Content $_.FullName | ForEach-Object {
-                if ($_ -match '^using') {
-                    $usingStatements.Add($_)
-                } else {
-                    $_.TrimEnd()
-                }
-            } | Out-String
-            $writer.WriteLine($functionDefinition.Trim())
-            $writer.WriteLine()
+    $buildInfo | Get-BuildItem -Type ShouldMerge | ForEach-Object {
+        $functionDefinition = Get-Content $_.FullName | ForEach-Object {
+            if ($_ -match '^using (namespace|assembly)') {
+                $null = $usingStatements.Add($_)
+            } else {
+                $_.TrimEnd()
+            }
         }
+        $writer.Write(($functionDefinition -join $buildInfo.Config.EndOfLineChar).Trim())
+        $writer.Write($buildInfo.Config.EndOfLineChar)
+    }
+
+    if (Test-Path (Join-Path $buildInfo.Path.Source.Module 'InitializeModule.ps1')) {
+        $writer.WriteLine('InitializeModule')
     }
 
     $writer.Close()
 
-    $rootModule = (Get-Content $buildInfo.Path.RootModule -Raw).Trim()
+    $rootModule = (Get-Content $buildInfo.Path.Build.RootModule -Raw).Trim()
     if ($usingStatements.Count -gt 0) {
         # Add "using" statements to be start of the psm1
-        $rootModule = $rootModule.Insert(0, "`r`n`r`n").Insert(
+        $rootModule = $rootModule.Insert(
             0,
-            (($usingStatements.ToArray() | Sort-Object | Get-Unique) -join "`r`n")
+            ($buildInfo.Config.EndOfLineChar * 2)
+        ).Insert(
+            0,
+            (($usingStatements | Sort-Object) -join $buildInfo.Config.EndOfLineChar)
         )
     }
-    Set-Content -Path $buildInfo.Path.RootModule -Value $rootModule -NoNewline
+    Set-Content -Path $buildInfo.Path.Build.RootModule -Value $rootModule -NoNewline
 }
 
 task UpdateMetadata {
     try {
-        $path = $buildInfo.Path.Manifest
+        $path = $buildInfo.Path.Build.Manifest
 
         # Version
         Update-Metadata $path -PropertyName ModuleVersion -Value $buildInfo.Version
-        
+
         # RootModule
-        Update-Metadata $path -PropertyName RootModule -Value $buildInfo.Path.RootModule.Name
+        if (Enable-Metadata $path -PropertyName RootModule) {
+            Update-Metadata $path -PropertyName RootModule -Value $buildInfo.Path.Build.RootModule.Name
+        }
 
         # FunctionsToExport
-        Update-Metadata $path -PropertyName FunctionsToExport -Value (
-            (Get-ChildItem (Join-Path $buildInfo.Path.Source 'public') -Filter '*.ps1' -File -Recurse).BaseName
-        )
+        $functionsToExport = Get-ChildItem (Join-Path $buildInfo.Path.Source.Module 'pub*') -Filter '*.ps1' -Recurse |
+            Get-FunctionInfo |
+            Select-Object -ExpandProperty Name
+        if ($functionsToExport) {
+            if (Enable-Metadata $path -PropertyName FunctionsToExport) {
+                Update-Metadata $path -PropertyName FunctionsToExport -Value $functionsToExport
+            }
+        }
+
+        # FormatsToProcess
+        if (Test-Path (Join-Path $buildInfo.Path.Build.Module '*.Format.ps1xml')) {
+            if (Enable-Metadata $path -PropertyName FormatsToProcess) {
+                Update-Metadata $path -PropertyName FormatsToProcess -Value (Get-Item (Join-Path $buildInfo.Path.Build.Module '*.Format.ps1xml')).Name
+            }
+        }
     } catch {
         throw
     }
 }
 
 task UpdateBuildScript {
-    Import-Module $buildInfo.Path.Manifest -Global -Force
+    Import-Module $buildInfo.Path.Build.Manifest -Global -Force
     Export-BuildScript -BuildSystem AppVeyor -Path (Join-Path $buildInfo.Path.ProjectRoot '.build.ps1')
 }

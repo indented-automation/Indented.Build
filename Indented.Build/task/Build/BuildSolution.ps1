@@ -1,18 +1,17 @@
-BuildTask BuildSolution -Stage Build -Order 3 -If { Test-Path (Join-Path $buildInfo.Path.Source 'class*\*.sln') } -Definition {
-        try {
+BuildTask BuildSolution -Stage Build -Order 3 -If {
+    Test-Path (Join-Path $buildInfo.Path.Source.Module 'class*\*.sln')
+} -Definition {
+    try {
         Push-Location (Resolve-Path 'class*').Path
 
-        $webClient = New-Object System.Net.WebClient
-        $webClient.DownloadFile('https://dist.nuget.org/win-x86-commandline/latest/nuget.exe', "$pwd\nuget.exe")
-
-        .\nuget.exe restore
+        nuget restore
 
         msbuild /t:Clean /t:Build /p:DebugSymbols=false /p:DebugType=None
         if ($lastexitcode -ne 0) {
             throw 'msbuild failed'
         }
 
-        $path = (Join-Path $buildInfo.Path.Package 'lib')
+        $path = (Join-Path $buildInfo.Path.Build.Module 'lib')
         if (-not (Test-Path $path)) {
             $null = New-Item $path -ItemType Directory -Force
         }
@@ -25,9 +24,6 @@ BuildTask BuildSolution -Stage Build -Order 3 -If { Test-Path (Join-Path $buildI
     } catch {
         throw
     } finally {
-        if (Test-Path .\nuget.exe) {
-            Remove-Item .\nuget.exe
-        }
         Pop-Location
     }
 }

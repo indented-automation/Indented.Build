@@ -11,11 +11,8 @@ BuildTask TestAttributeSyntax -Stage Build -Order 2 -Definition {
         )
 
         # Test attribute syntax
-        $attributes = $ast.FindAll( {
-                param( $ast )
-                
-                $ast -is [System.Management.Automation.Language.AttributeAst]
-            },
+        $attributes = $ast.FindAll(
+            { $args[0] -is [System.Management.Automation.Language.AttributeAst] },
             $true
         )
         foreach ($attribute in $attributes) {

@@ -7,7 +7,7 @@ function BuildTask {
     #>
 
     [CmdletBinding()]
-    [OutputType('BuildTask')]
+    [OutputType('Indented.BuildTask')]
     param (
         # The name of the task.
         [Parameter(Mandatory)]
@@ -34,5 +34,6 @@ function BuildTask {
         If         = $If
         Order      = $Order
         Definition = $Definition
-    } | Add-Member -TypeName 'BuildTask' -PassThru
+        PSTypeName = 'Indented.BuildTask'
+    }
 }

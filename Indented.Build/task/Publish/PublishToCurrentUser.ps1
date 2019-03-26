@@ -3,5 +3,5 @@ BuildTask PublishToCurrentUser -Stage Publish -Order 99 -Definition {
     if (-not (Test-Path $path)) {
         $null = New-Item $path -ItemType Directory
     }
-    Copy-Item $buildInfo.Path.Package -Destination $path -Recurse -Force
+    Copy-Item $buildInfo.Path.Build.Module -Destination $path -Recurse -Force
 }

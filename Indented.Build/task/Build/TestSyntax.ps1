@@ -10,7 +10,7 @@ BuildTask TestSyntax -Stage Build -Order 1 -Definition {
             [Ref]$tokens,
             [Ref]$parseErrors
         )
-        
+
         if ($parseErrors.Count -gt 0) {
             $parseErrors | Write-Error
 

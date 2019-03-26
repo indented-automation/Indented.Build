@@ -1,5 +1,3 @@
-using namespace System.Text
-
 function Export-BuildScript {
     <#
     .SYNOPSIS
@@ -15,7 +13,7 @@ function Export-BuildScript {
     param (
         # The build information object is used to determine which tasks are applicable.
         [Parameter(ValueFromPipeline)]
-        [PSTypeName('BuildInfo')]
+        [PSTypeName('Indented.BuildInfo')]
         [PSObject]$BuildInfo = (Get-BuildInfo),
 
         # By default the build system is automatically discovered. The BuildSystem parameter overrides any automatically discovered value. Tasks associated with the build system are added to the generated script.
@@ -90,8 +88,8 @@ function Export-BuildScript {
                                 AppendLine()
             }
         }
-    
-    'Enable-Metadata', 'Get-BuildInfo', 'Get-BuildItem' | ForEach-Object { 
+
+    'Enable-Metadata', 'Get-BuildInfo', 'Get-BuildItem' | ForEach-Object {
         $null = $script.AppendFormat('function {0} {{', $_).
                         Append((Get-Command $_).Definition).
                         AppendLine('}').

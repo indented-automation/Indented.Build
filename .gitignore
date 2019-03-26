@@ -50,5 +50,4 @@ Temporary Items
 .vscode
 
 # Build
-/output
-/[0-9]*.[0-9]*.[0-9]*
+/build

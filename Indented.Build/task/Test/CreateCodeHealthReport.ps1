@@ -1,10 +1,12 @@
-BuildTask CreateCodeHealthReport -Stage Test -If { Get-Module PSCodeHealth -ListAvailable } -Definition {
-    Start-Job -ArgumentList $buildInfo -ScriptBlock {
+BuildTask CreateCodeHealthReport -Stage Test -If {
+    Get-Module PSCodeHealth -ListAvailable
+} -Definition {
+     $script = {
         param (
             $buildInfo
         )
 
-        $path = Join-Path $buildInfo.Path.Source 'test*'
+        $path = Join-Path $buildInfo.Path.Source.Module 'test*'
 
         if (Test-Path (Join-Path $path 'stub')) {
             Get-ChildItem (Join-Path $path 'stub') -Filter *.psm1 -Recurse -Depth 1 | ForEach-Object {
@@ -12,13 +14,19 @@ BuildTask CreateCodeHealthReport -Stage Test -If { Get-Module PSCodeHealth -List
             }
         }
 
-        Import-Module $buildInfo.Path.Manifest -Global -ErrorAction Stop
+        Import-Module $buildInfo.Path.Build.Manifest -Global -ErrorAction Stop
         $params = @{
-            Path           = $buildInfo.Path.RootModule
+            Path           = $buildInfo.Path.Build.RootModule
             Recurse        = $true
             TestsPath      = $path
-            HtmlReportPath = Join-Path $buildInfo.Path.Output ('{0}-code-health.html' -f $buildInfo.ModuleName)
+            HtmlReportPath = Join-Path $buildInfo.Path.Build.Output ('{0}-code-health.html' -f $buildInfo.ModuleName)
         }
         Invoke-PSCodeHealth @params
-    } | Receive-Job -Wait
+    }
+
+    if ($buildInfo.BuildSystem -eq 'Desktop') {
+        Start-Job -ArgumentList $buildInfo -ScriptBlock $script | Receive-Job -Wait
+    } else {
+        & $script -BuildInfo $buildInfo
+    }
 }

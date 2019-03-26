@@ -6,22 +6,26 @@ BuildTask Clean -Stage Build -Order 0 -Definition {
             Remove-Module $buildInfo.ModuleName
         }
 
-        Get-ChildItem $buildInfo.Path.Package.Parent.FullName -Directory -ErrorAction SilentlyContinue |
-            Where-Object { [Version]::TryParse($_.Name, [Ref]$null) } |
-            Remove-Item -Recurse -Force
-
-        if (Test-Path $buildInfo.Path.Output) {
-            Remove-Item $buildInfo.Path.Output -Recurse -Force
+        if (Test-Path $buildInfo.Path.Build.Module.Parent.FullName) {
+            Remove-Item $buildInfo.Path.Build.Parent.FullName -Recurse -Force -WhatIf
         }
 
-        $nupkg = Join-Path $buildInfo.Path.Nuget ('{0}.*.nupkg' -f $buildInfo.ModuleName)
+        $nupkg = Join-Path $buildInfo.Path.Build.Package ('{0}.*.nupkg' -f $buildInfo.ModuleName)
         if (Test-Path $nupkg) {
             Remove-Item $nupkg
         }
 
-        $null = New-Item $buildInfo.Path.Package -ItemType Directory -Force
-        $null = New-Item $buildInfo.Path.Output -ItemType Directory -Force
-        $null = New-Item $buildInfo.Path.Nuget -ItemType Directory -Force
+        $output = Join-Path $buildInfo.Path.Build.Output ('{0}*' -f $buildInfo.ModuleName)
+        if (Test-Path $output) {
+            Remove-Item $output
+        }
+
+        $null = New-Item $buildInfo.Path.Build.Module -ItemType Directory -Force
+        $null = New-Item $buildInfo.Path.Build.Package -ItemType Directory -Force
+
+        if (-not (Test-Path $buildInfo.Path.Build.Output)) {
+            $null = New-Item $buildInfo.Path.Build.Output -ItemType Directory -Force
+        }
     } catch {
         throw
     }

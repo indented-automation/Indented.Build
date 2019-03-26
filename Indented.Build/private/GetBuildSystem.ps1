@@ -5,5 +5,5 @@ function GetBuildSystem {
     if ($env:APPVEYOR -eq $true) { return 'AppVeyor' }
     if ($env:JENKINS_URL)        { return 'Jenkins' }
 
-    return 'Unknown'
+    return 'Desktop'
 }
