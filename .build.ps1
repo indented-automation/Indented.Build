@@ -180,11 +180,11 @@ function Get-BuildInfo {
                         Manifest = $_
                     }
                     Build       = [PSCustomObject]@{
-                        Module     = $module = [DirectoryInfo][Path]::Combine($ProjectRoot, 'build', $moduleName, $version)
-                        Manifest   = [FileInfo](Join-Path $module ('{0}.psd1' -f $moduleName))
-                        RootModule = [FileInfo](Join-Path $module ('{0}.psm1' -f $moduleName))
-                        Output     = [DirectoryInfo][Path]::Combine($ProjectRoot, 'build\output', $moduleName)
-                        Package    = [DirectoryInfo][Path]::Combine($ProjectRoot, 'build\packages')
+                        Module     = $module = [System.IO.DirectoryInfo][System.IO.Path]::Combine($ProjectRoot, 'build', $moduleName, $version)
+                        Manifest   = [System.IO.FileInfo](Join-Path $module ('{0}.psd1' -f $moduleName))
+                        RootModule = [System.IO.FileInfo](Join-Path $module ('{0}.psm1' -f $moduleName))
+                        Output     = [System.IO.DirectoryInfo][System.IO.Path]::Combine($ProjectRoot, 'build\output', $moduleName)
+                        Package    = [System.IO.DirectoryInfo][System.IO.Path]::Combine($ProjectRoot, 'build\packages')
                     }
                 }
                 BuildSystem = GetBuildSystem
@@ -320,8 +320,8 @@ task Clean {
             Remove-Module $buildInfo.ModuleName
         }
 
-        if (Test-Path $buildInfo.Path.Build.Module) {
-            Remove-Item $buildInfo.Path.Build.Module -Recurse -Force
+        if (Test-Path $buildInfo.Path.Build.Module.Parent.FullName) {
+            Remove-Item $buildInfo.Path.Build.Parent.FullName -Recurse -Force -WhatIf
         }
 
         $nupkg = Join-Path $buildInfo.Path.Build.Package ('{0}.*.nupkg' -f $buildInfo.ModuleName)

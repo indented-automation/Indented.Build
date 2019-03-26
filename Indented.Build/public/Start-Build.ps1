@@ -1,4 +1,4 @@
-function Build-Module {
+function Start-Build {
     <#
     .SYNOPSIS
         Start a build.

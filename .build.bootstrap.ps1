@@ -134,7 +134,7 @@ task Clean {
         }
 
         if (Test-Path $buildInfo.Path.Build.Module.Parent.FullName) {
-            Remove-Item $buildInfo.Path.Build.Module.Parent.FullName -Recurse -Force -WhatIf
+            Remove-Item $buildInfo.Path.Build.Module.Parent.FullName -Recurse -Force
         }
 
         $nupkg = Join-Path $buildInfo.Path.Build.Package ('{0}.*.nupkg' -f $buildInfo.ModuleName)

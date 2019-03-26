@@ -7,7 +7,7 @@ BuildTask Clean -Stage Build -Order 0 -Definition {
         }
 
         if (Test-Path $buildInfo.Path.Build.Module.Parent.FullName) {
-            Remove-Item $buildInfo.Path.Build.Parent.FullName -Recurse -Force -WhatIf
+            Remove-Item $buildInfo.Path.Build.Parent.FullName -Recurse -Force
         }
 
         $nupkg = Join-Path $buildInfo.Path.Build.Package ('{0}.*.nupkg' -f $buildInfo.ModuleName)

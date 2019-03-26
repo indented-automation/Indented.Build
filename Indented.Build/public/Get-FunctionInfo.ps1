@@ -32,10 +32,10 @@ function Get-FunctionInfo {
 
     begin {
         $executionContextType = [PowerShell].Assembly.GetType('System.Management.Automation.ExecutionContext')
-        $constructor = [FunctionInfo].GetConstructor(
-            [BindingFlags]'NonPublic, Instance',
+        $constructor = [System.Management.Automation.FunctionInfo].GetConstructor(
+            [System.Reflection.BindingFlags]'NonPublic, Instance',
             $null,
-            [CallingConventions]'Standard, HasThis',
+            [System.Reflection.CallingConventions]'Standard, HasThis',
             ([String], [ScriptBlock], $executionContextType),
             $null
         )
@@ -59,7 +59,7 @@ function Get-FunctionInfo {
             $scriptBlock.Ast.FindAll( {
                     param( $ast )
 
-                    $ast -is [FunctionDefinitionAst]
+                    $ast -is [System.Management.Automation.Language.FunctionDefinitionAst]
                 },
                 $IncludeNested
             ) | ForEach-Object {

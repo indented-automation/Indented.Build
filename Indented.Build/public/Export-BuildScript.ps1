@@ -27,7 +27,7 @@ function Export-BuildScript {
         $BuildInfo.BuildSystem = $BuildSystem
     }
 
-    $script = [StringBuilder]::new()
+    $script = [System.Text.StringBuilder]::new()
     $null = $script.AppendLine('param (').
                     AppendLine('    [PSTypeName("BuildInfo")]').
                     AppendLine('    [ValidateCount(1, 1)]').
@@ -46,7 +46,7 @@ function Export-BuildScript {
     }, Order, Name
 
     # Build the wrapper tasks and insert the block at the top of the script
-    $taskSets = [StringBuilder]::new()
+    $taskSets = [System.Text.StringBuilder]::new()
     # Add a default task set
     $null = $taskSets.AppendLine('task default Setup,').
                       AppendLine('             Build,').
@@ -72,7 +72,7 @@ function Export-BuildScript {
         {
             param ( $ast )
 
-            $ast -is [Management.Automation.Language.CommandAst]
+            $ast -is [System.Management.Automation.Language.CommandAst]
         },
         $true
     ) | ForEach-Object GetCommandName |

@@ -11,17 +11,15 @@ foreach ($command in $private) {
 }
 
 $public = @(
-    'Configuration\Get-RdcConfiguration'
-    'Configuration\Set-RdcConfiguration'
-    'DSL\ADConfiguration'
-    'DSL\RdcADComputer'
-    'DSL\RdcADGroup'
-    'DSL\RdcComputer'
-    'DSL\RdcConfiguration'
-    'DSL\RdcDocument'
-    'DSL\RdcGroup'
-    'DSL\RdcLogonCredential'
-    'DSL\RdcRemoteDesktopSetting'
+    'BuildTask'
+    'ConvertTo-ChocoPackage'
+    'Enable-Metadata'
+    'Export-BuildScript'
+    'Get-BuildInfo'
+    'Get-BuildItem'
+    'Get-BuildTask'
+    'Get-FunctionInfo'
+    'Start-Build'
 )
 
 $functionsToExport = foreach ($command in $public) {
