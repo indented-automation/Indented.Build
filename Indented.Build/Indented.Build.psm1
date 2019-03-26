@@ -1,16 +1,13 @@
-# Development root module
-
 $private = @(
     'GetBuildSystem'
 )
 
-foreach ($command in $private) {
-    . ('{0}\private\{1}.ps1' -f $psscriptroot, $command)
-
-    Split-Path $command -Leaf
+foreach ($file in $private) {
+    . "{0}\private\{1}.ps1" -f $psscriptroot, $file
 }
 
 $public = @(
+    'Add-PesterTemplate'
     'BuildTask'
     'ConvertTo-ChocoPackage'
     'Enable-Metadata'
@@ -19,16 +16,31 @@ $public = @(
     'Get-BuildItem'
     'Get-BuildTask'
     'Get-FunctionInfo'
+    'New-ConfigDocument'
     'Start-Build'
+    'Update-DevRootModule'
 )
 
-$functionsToExport = foreach ($command in $public) {
-    . ('{0}\public\{1}.ps1' -f $psscriptroot, $command)
-
-    Split-Path $command -Leaf
+foreach ($file in $public) {
+    . "{0}\public\{1}.ps1" -f $psscriptroot, $file
 }
 
-. ('{0}\InitializeModule.ps1' -f $psscriptroot)
+$functionsToExport = @(
+    'Add-PesterTemplate'
+    'BuildTask'
+    'ConvertTo-ChocoPackage'
+    'Enable-Metadata'
+    'Export-BuildScript'
+    'Get-BuildInfo'
+    'Get-BuildItem'
+    'Get-BuildTask'
+    'Get-FunctionInfo'
+    'New-ConfigDocument'
+    'Start-Build'
+    'Update-DevRootModule'
+)
+Export-ModuleMember -Function $functionsToExport
+
+. ("{0}\InitializeModule.ps1" -f $psscriptroot)
 InitializeModule
 
-Export-ModuleMember -Function $functionsToExport

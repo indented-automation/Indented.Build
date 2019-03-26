@@ -43,7 +43,8 @@ function Get-BuildItem {
             foreach ($itemType in $itemTypes.Keys) {
                 if ($itemType -ne 'class' -or ($itemType -eq 'class' -and -not $ExcludeClass)) {
                     Get-ChildItem $itemTypes[$itemType] -Recurse -ErrorAction SilentlyContinue |
-                        Where-Object { -not $_.PSIsContainer -and $_.Extension -eq '.ps1' -and $_.Length -gt 0 }
+                        Where-Object { -not $_.PSIsContainer -and $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
+                        Add-Member -NotePropertyName 'BuildItemType' -NotePropertyValue $itemType -PassThru
                 }
             }
         } elseif ($Type -eq 'Static') {

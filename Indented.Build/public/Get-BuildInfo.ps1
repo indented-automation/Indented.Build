@@ -41,6 +41,7 @@ function Get-BuildInfo {
                     CodeCoverageThreshold = (0.8, $config.CodeCoverageThreshold)[$null -ne $config.CodeCoverageThreshold]
                     EndOfLineChar         = ([Environment]::NewLine, $config.EndOfLineChar)[$null -ne $config.EndOfLineChar]
                     License               = ('MIT', $config.License)[$null -ne $config.License]
+                    CreateChocoPackage    = ($false, $config.CreateChocoPackage)[$null -ne $config.CreateChocoPackage]
                 }
                 Path        = [PSCustomObject]@{
                     ProjectRoot = $ProjectRoot

@@ -1,5 +1,6 @@
 BuildTask CreateChocoPackage -Stage Pack -If {
-    Get-Command choco -ErrorAction SilentlyContinue
+    $buildInfo.Config.CreateChocoPackage -eq $true -and
+    (Get-Command choco -ErrorAction SilentlyContinue)
 } -Definition {
     $script = {
         param (

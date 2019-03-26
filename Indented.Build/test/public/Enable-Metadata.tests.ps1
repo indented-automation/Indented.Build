@@ -1,3 +1,19 @@
+#region:TestFileHeader
+param (
+   [Boolean]$UseExisting
+)
+
+if (-not $UseExisting) {
+   $moduleBase = $psscriptroot.Substring(0, $psscriptroot.IndexOf("\\test"))
+   $stubBase = Resolve-Path (Join-Path $moduleBase "test*\\stub\\*")
+   if ($null -ne $stubBase) {
+       $stubBase | Import-Module -Force
+   }
+
+   Import-Module $moduleBase -Force
+}
+#endregion
+
 InModuleScope Indented.Build {
     Describe Enable-Metadata {
         BeforeAll {
@@ -21,7 +37,7 @@ InModuleScope Indented.Build {
             BeforeAll {
                 Mock Get-Metadata
 
-                $return = Enable-Metadata -PropertyName Enabled -Path $path 
+                $return = Enable-Metadata -PropertyName Enabled -Path $path
             }
 
             It 'Output: True when the value was present and already enabled' {
@@ -40,7 +56,7 @@ InModuleScope Indented.Build {
                     throw [System.Management.Automation.ItemNotFoundException]::new('Not found')
                 }
 
-                $return = Enable-Metadata -PropertyName Disabled -Path $path 
+                $return = Enable-Metadata -PropertyName Disabled -Path $path
             }
 
             It 'Output: True when the value was commented and updated' {
