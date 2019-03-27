@@ -4,24 +4,21 @@ function New-ConfigDocument {
         Create a new build configuration document
     .DESCRIPTION
         The build configuration document may be used to adjust the configurable build values for a single module.
+
+        This file is optional, without it the following default values will be used:
+
+          - CodeCoverageThreshold: 0.8 (80%)
+          - EndOfLineChar: [Environment]::NewLine
+          - License: MIT
+          - CreateChocoPackage: $false
     #>
 
-    [CmdletBinding(DefaultParameterSetName = 'UsingPath')]
+    [CmdletBinding(SupportsShouldProcess)]
     param (
-        # The path to the  buildConfig.psd1 document.
-        [Parameter(Mandatory, ParameterSetName = 'UsingPath')]
-        [ValidateScript( {
-            if (Test-Path $_ -PathType Container) {
-                $true
-            } else {
-                throw 'Path must be an existing directory'
-            }
-        } )]
-        [String]$Path,
-
-        [Parameter(Mandatory, ValueFromPipeline, ParameterSetName = 'FromBuildInfo')]
+        # BuildInfo is used to determine the source path.
+        [Parameter(ValueFromPipeline)]
         [PSTypeName('Indented.BuildInfo')]
-        $BuildInfo
+        $BuildInfo = (Get-BuildInfo)
     )
 
     process {
@@ -32,9 +29,9 @@ function New-ConfigDocument {
         }
 
         $eolChar = switch -Regex ([Environment]::NewLine) {
-            '\r\n' { '`r`n' }
-            '\n'   { '`n' }
-            '\r'   { '`r' }
+            '\r\n' { '`r`n'; break }
+            '\n'   { '`n'; break }
+            '\r'   { '`r'; break }
         }
 
         # Build configuration for Indented.Build

@@ -8,10 +8,10 @@ function Update-DevRootModule {
         All content which should would normally be merged is added to a psm1 file. All other module content, such as required assebmlies, is ignored.
     #>
 
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess)]
     param (
         # BuildInfo is used to determine the source path.
-        [Parameter(Mandatory, ValueFromPipeline)]
+        [Parameter(ValueFromPipeline)]
         [PSTypeName('Indented.BuildInfo')]
         [PSObject]$BuildInfo = (Get-BuildInfo)
     )
@@ -35,7 +35,7 @@ function Update-DevRootModule {
             $script.AppendLine(')').AppendLine()
 
             $script.AppendFormat('foreach ($file in ${0}) {{', $group.Name).AppendLine().
-                    AppendFormat('    . "{{0}}\{0}\{{1}}.ps1" -f $psscriptroot, $file', $groupTypePath).AppendLine().
+                    AppendFormat('    . ("{{0}}\{0}\{{1}}.ps1" -f $psscriptroot, $file)', $groupTypePath).AppendLine().
                     AppendLine('}').
                     AppendLine()
 

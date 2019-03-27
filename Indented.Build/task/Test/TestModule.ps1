@@ -18,7 +18,12 @@ BuildTask TestModule -Stage Test -Order 2 -Definition {
 
         Import-Module $buildInfo.Path.Build.Manifest -Global -ErrorAction Stop
         $params = @{
-            Script       = $path
+            Script       = @{
+                Path       = $path
+                Parameters = @{
+                    UseExisting = $true
+                }
+            }
             CodeCoverage = $buildInfo.Path.Build.RootModule
             OutputFile   = Join-Path $buildInfo.Path.Build.Output ('{0}-nunit.xml' -f $buildInfo.ModuleName)
             PassThru     = $true

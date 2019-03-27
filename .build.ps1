@@ -9,7 +9,7 @@ param (
 task default Setup,
              Build,
              Test,
-             Pack
+             Publish
 
 task Setup SetBuildInfo,
            InstallRequiredModules
@@ -29,8 +29,6 @@ task Test TestModuleImport,
           UploadAppVeyorTestResults,
           ValidateTestResults,
           CreateCodeHealthReport
-
-task Pack CreateChocoPackage
 
 task Publish PublishToCurrentUser,
              PublishToPSGallery
@@ -357,6 +355,7 @@ function Get-BuildInfo {
         Get build information for the current or any child directories.
     #>
 
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
     [CmdletBinding()]
     [OutputType('Indented.BuildInfo')]
     param (
@@ -387,6 +386,7 @@ function Get-BuildInfo {
                     CodeCoverageThreshold = (0.8, $config.CodeCoverageThreshold)[$null -ne $config.CodeCoverageThreshold]
                     EndOfLineChar         = ([Environment]::NewLine, $config.EndOfLineChar)[$null -ne $config.EndOfLineChar]
                     License               = ('MIT', $config.License)[$null -ne $config.License]
+                    CreateChocoPackage    = ($false, $config.CreateChocoPackage)[$null -ne $config.CreateChocoPackage]
                 }
                 Path        = [PSCustomObject]@{
                     ProjectRoot = $ProjectRoot
@@ -456,7 +456,8 @@ function Get-BuildItem {
             foreach ($itemType in $itemTypes.Keys) {
                 if ($itemType -ne 'class' -or ($itemType -eq 'class' -and -not $ExcludeClass)) {
                     Get-ChildItem $itemTypes[$itemType] -Recurse -ErrorAction SilentlyContinue |
-                        Where-Object { -not $_.PSIsContainer -and $_.Extension -eq '.ps1' -and $_.Length -gt 0 }
+                        Where-Object { -not $_.PSIsContainer -and $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
+                        Add-Member -NotePropertyName 'BuildItemType' -NotePropertyValue $itemType -PassThru
                 }
             }
         } elseif ($Type -eq 'Static') {
@@ -602,7 +603,9 @@ task InstallRequiredModules {
         if (-not $nugetPackageProvider -or $nugetPackageProvider.Version -lt [Version]'2.8.5.201') {
             $null = Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
         }
-        Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+        if ((Get-PSRepository PSGallery).InstallationPolicy -ne 'Trusted') {
+            Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+        }
 
         'Configuration', 'Pester' | Where-Object { -not (Get-Module $_ -ListAvailable) } | ForEach-Object {
             Install-Module $_ -Scope CurrentUser
@@ -929,7 +932,12 @@ task TestModule {
 
         Import-Module $buildInfo.Path.Build.Manifest -Global -ErrorAction Stop
         $params = @{
-            Script       = $path
+            Script       = @{
+                Path       = $path
+                Parameters = @{
+                    UseExisting = $true
+                }
+            }
             CodeCoverage = $buildInfo.Path.Build.RootModule
             OutputFile   = Join-Path $buildInfo.Path.Build.Output ('{0}-nunit.xml' -f $buildInfo.ModuleName)
             PassThru     = $true
@@ -1075,25 +1083,6 @@ task CreateCodeHealthReport -If (Get-Module PSCodeHealth -ListAvailable) {
         }
         Invoke-PSCodeHealth @params
     }
-
-    if ($buildInfo.BuildSystem -eq 'Desktop') {
-        Start-Job -ArgumentList $buildInfo -ScriptBlock $script | Receive-Job -Wait
-    } else {
-        & $script -BuildInfo $buildInfo
-    }
-}
-
-task CreateChocoPackage -If (Get-Command choco -ErrorAction SilentlyContinue) {
-    $script = {
-        param (
-            $buildInfo
-        )
-
-        Import-Module $buildInfo.Path.Build.Manifest
-
-        Get-Module $buildInfo.ModuleName | ConvertTo-ChocoPackage -Path $buildInfo.Path.Build.Package
-    }
-
 
     if ($buildInfo.BuildSystem -eq 'Desktop') {
         Start-Job -ArgumentList $buildInfo -ScriptBlock $script | Receive-Job -Wait

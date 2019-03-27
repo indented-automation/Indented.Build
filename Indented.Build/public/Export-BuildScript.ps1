@@ -50,11 +50,16 @@ function Export-BuildScript {
     # Build the wrapper tasks and insert the block at the top of the script
     $taskSets = [System.Text.StringBuilder]::new()
     # Add a default task set
-    $null = $taskSets.AppendLine('task default Setup,').
-                      AppendLine('             Build,').
-                      AppendLine('             Test,').
-                      AppendLine('             Pack').
-                      AppendLine()
+    $taskStages = ($tasks | Group-Object Stage -NoElement).Name
+    $null = $taskSets.AppendFormat('task default {0},', $taskStages[0]).AppendLine()
+    for ($i = 1; $i -lt $taskStages.Count; $i++) {
+        $null = $taskSets.AppendFormat(
+            '             {0}{1}',
+            $taskStages[$i],
+            @(',', '')[$i -eq $taskStages.Count - 1]
+        ).AppendLine()
+    }
+    $null = $taskSets.AppendLine()
 
     $tasks | Group-Object Stage | ForEach-Object {
         $indentLength = 'task '.Length + $_.Name.Length

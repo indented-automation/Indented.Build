@@ -11,7 +11,7 @@ function Add-PesterTemplate {
     [CmdletBinding()]
     param (
         # BuildInfo is used to determine the source path.
-        [Parameter(Mandatory, ValueFromPipeline)]
+        [Parameter(ValueFromPipeline)]
         [PSTypeName('Indented.BuildInfo')]
         [PSObject]$BuildInfo = (Get-BuildInfo)
     )
@@ -20,17 +20,17 @@ function Add-PesterTemplate {
         $header = @(
             '#region:TestFileHeader'
             'param ('
-            '   [Boolean]$UseExisting'
+            '    [Boolean]$UseExisting'
             ')'
             ''
             'if (-not $UseExisting) {'
-            '   $moduleBase = $psscriptroot.Substring(0, $psscriptroot.IndexOf("\\test"))'
-            '   $stubBase = Resolve-Path (Join-Path $moduleBase "test*\\stub\\*")'
-            '   if ($null -ne $stubBase) {'
-            '       $stubBase | Import-Module -Force'
-            '   }'
+            '    $moduleBase = $psscriptroot.Substring(0, $psscriptroot.IndexOf("\test"))'
+            '    $stubBase = Resolve-Path (Join-Path $moduleBase "test*\stub\*")'
+            '    if ($null -ne $stubBase) {'
+            '        $stubBase | Import-Module -Force'
+            '    }'
             ''
-            '   Import-Module $moduleBase -Force'
+            '    Import-Module $moduleBase -Force'
             '}'
             '#endregion'
         ) -join ([Environment]::NewLine)
