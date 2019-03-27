@@ -19,8 +19,8 @@ function Export-BuildScript {
         # By default the build system is automatically discovered. The BuildSystem parameter overrides any automatically discovered value. Tasks associated with the build system are added to the generated script.
         [String]$BuildSystem,
 
-        # If specified, the build script will be written to the the specified path. By default the build script is written (as a string) to the console.
-        [String]$Path
+        # The build script will be written to the the specified path.
+        [String]$Path = '.build.ps1'
     )
 
     if ($BuildSystem) {
@@ -49,8 +49,9 @@ function Export-BuildScript {
 
     # Build the wrapper tasks and insert the block at the top of the script
     $taskSets = [System.Text.StringBuilder]::new()
-    # Add a default task set
     $taskStages = ($tasks | Group-Object Stage -NoElement).Name
+
+    # Add a default task set
     $null = $taskSets.AppendFormat('task default {0},', $taskStages[0]).AppendLine()
     for ($i = 1; $i -lt $taskStages.Count; $i++) {
         $null = $taskSets.AppendFormat(
@@ -140,9 +141,5 @@ function Export-BuildScript {
                         AppendLine()
     }
 
-    if ($Path) {
-        $script.ToString() | Set-Content $Path
-    } else {
-        $script.ToString()
-    }
+    $script.ToString() | Set-Content $Path
 }

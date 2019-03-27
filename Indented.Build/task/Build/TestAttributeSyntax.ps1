@@ -1,4 +1,8 @@
 BuildTask TestAttributeSyntax -Stage Build -Order 2 -Definition {
+    $CommonAttributes = [PowerShell].Assembly.GetTypes() |
+        Where-Object { $_.Name -match 'Attribute$' -and $_.IsPublic } |
+        ForEach-Object Name
+
     $hasSyntaxErrors = $false
     $buildInfo | Get-BuildItem -Type ShouldMerge -ExcludeClass | ForEach-Object {
         $tokens = $null
@@ -22,24 +26,27 @@ BuildTask TestAttributeSyntax -Stage Build -Order 2 -Definition {
                 if ($attribute.NamedArguments.Count -gt 0) {
                     foreach ($argument in $attribute.NamedArguments) {
                         if ($argument.ArgumentName -notin $propertyNames) {
-                            'Invalid property name in attribute declaration: {0}: {1} at line {2}, character {3}' -f
-                                $_.Name,
-                                $argument.ArgumentName,
-                                $argument.Extent.StartLineNumber,
+                            'Invalid property name in attribute declaration: {0}: {1} at line {2}, character {3}' -f @(
+                                $_.Name
+                                $argument.ArgumentName
+                                $argument.Extent.StartLineNumber
                                 $argument.Extent.StartColumnNumber
+                            )
 
                             $hasSyntaxErrors = $true
                         }
                     }
                 }
             } else {
-                'Invalid attribute declaration: {0}: {1} at line {2}, character {3}' -f
-                    $_.Name,
-                    $attribute.TypeName.FullName,
-                    $attribute.Extent.StartLineNumber,
-                    $attribute.Extent.StartColumnNumber
+                'SPTypeName'
+                'Parmeter'
 
-                $hasSyntaxErrors = $true
+                'Invalid attribute declaration: {0}: {1} at line {2}, character {3}' -f @(
+                    $_.Name
+                    $attribute.TypeName.FullName
+                    $attribute.Extent.StartLineNumber
+                    $attribute.Extent.StartColumnNumber
+                )
             }
         }
     }
