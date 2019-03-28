@@ -63,8 +63,7 @@ Accept wildcard characters: False
 ```
 
 ### -Path
-If specified, the build script will be written to the the specified path.
-By default the build script is written (as a string) to the console.
+The build script will be written to the the specified path.
 
 ```yaml
 Type: String
@@ -73,7 +72,7 @@ Aliases:
 
 Required: False
 Position: 3
-Default value: None
+Default value: .build.ps1
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

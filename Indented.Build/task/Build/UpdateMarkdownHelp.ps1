@@ -1,7 +1,5 @@
-BuildTask UpdateMarkdownHelp -Stage Build -If {
-    Get-Module platyPS -ListAvailable
-} -Definition {
-    Start-Job -ArgumentList $buildInfo -ScriptBlock {
+BuildTask UpdateMarkdownHelp -Stage Build -Definition {
+    $script =  {
         param (
             $buildInfo
         )
@@ -22,5 +20,11 @@ BuildTask UpdateMarkdownHelp -Stage Build -If {
         } catch {
             throw
         }
-    } | Receive-Job -Wait -ErrorAction Stop
+    }
+
+    if ($buildInfo.BuildSystem -eq 'Desktop') {
+        Start-Job -ArgumentList $buildInfo -ScriptBlock $script | Receive-Job -Wait -ErrorAction Stop
+    } else {
+        & $script -BuildInfo $buildInfo
+    }
 }

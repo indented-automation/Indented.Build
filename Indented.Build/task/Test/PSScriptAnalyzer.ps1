@@ -1,6 +1,4 @@
-BuildTask PSScriptAnalyzer -Stage Test -Order 1 -If {
-    Get-Module PSScriptAnalyzer -ListAvailable
-} -Definition {
+BuildTask PSScriptAnalyzer -Stage Test -Order 1 -Definition {
     try {
         Push-Location $buildInfo.Path.Source.Module
         'priv*', 'pub*', 'InitializeModule.ps1' | Where-Object { Test-Path $_ } | ForEach-Object {

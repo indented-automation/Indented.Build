@@ -1,6 +1,4 @@
-BuildTask CreateCodeHealthReport -Stage Test -If {
-    Get-Module PSCodeHealth -ListAvailable
-} -Definition {
+BuildTask CreateCodeHealthReport -Stage Test -Definition {
      $script = {
         param (
             $buildInfo
