@@ -1,4 +1,6 @@
 BuildTask UpdateMarkdownHelp -Stage Build -Definition {
+    # Update markdown help documents.
+
     $script =  {
         param (
             $buildInfo

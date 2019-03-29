@@ -25,13 +25,11 @@ task Build Clean,
 task Test TestModuleImport,
           PSScriptAnalyzer,
           TestModule,
-          AddAppveyorCommitMessage,
+          AddAppveyorCompilationMessage,
           UploadAppVeyorTestResults,
-          ValidateTestResults,
-          CreateCodeHealthReport
+          ValidateTestResults
 
-task Publish PublishToCurrentUser,
-             PublishToPSGallery
+task Publish PublishToPSGallery
 
 function GetBuildSystem {
     [OutputType([String])]
@@ -655,6 +653,8 @@ task BuildAll {
 }
 
 task SetBuildInfo -If (-not $Script:BuildInfo) {
+    # BuildInfo is discovered. If more than one module is available to be built an error will be raised.
+
     $params = @{}
     if ($Script:moduleName) {
         $params.Add('ModuleName', $Script:moduleName)
@@ -667,26 +667,33 @@ task SetBuildInfo -If (-not $Script:BuildInfo) {
 }
 
 task InstallRequiredModules {
+    # Installs the modules required to execute the tasks in this script into current user scope.
+
     $erroractionpreference = 'Stop'
     try {
-        $nugetPackageProvider = Get-PackageProvider NuGet -ErrorAction SilentlyContinue
-        if (-not $nugetPackageProvider -or $nugetPackageProvider.Version -lt [Version]'2.8.5.201') {
-            $null = Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+        if (Get-Module PSDepend -ListAvailable) {
+            Update-Module PSDepend -ErrorAction SilentlyContinue
+        } else {
+            Install-Module PSDepend -Scope CurrentUser
         }
-        if ((Get-PSRepository PSGallery).InstallationPolicy -ne 'Trusted') {
-            Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-        }
+        Invoke-PSDepend -Install -Import -Force -InputObject @{
+            PSDependOptions = @{
+                Target    = 'CurrentUser'
+            }
 
-        'Configuration', 'Pester' | Where-Object { -not (Get-Module $_ -ListAvailable) } | ForEach-Object {
-            Install-Module $_ -Scope CurrentUser
+            Configuration    = 'latest'
+            Pester           = 'latest'
+            PlatyPS          = 'latest'
+            PSScriptAnalyzer = 'latest'
         }
-        Import-Module 'Configuration', 'Pester' -Global
     } catch {
         throw
     }
 }
 
 task Clean {
+    # Clean old content from the build directories.
+
     $erroractionprefence = 'Stop'
 
     try {
@@ -719,6 +726,8 @@ task Clean {
 }
 
 task TestSyntax {
+    # Attempt to find syntax errors in module files.
+
     $hasSyntaxErrors = $false
 
     $buildInfo | Get-BuildItem -Type ShouldMerge -ExcludeClass | ForEach-Object {
@@ -744,6 +753,14 @@ task TestSyntax {
 }
 
 task TestAttributeSyntax {
+    # Attempt to test whether or not attributes used within a script contain errors.
+    #
+    # If an attribute does not appear to exist it is compared with a list of common attributes from the System.Management.Automation namespace.
+    #
+    # If the non-existent attribute has a Levenshtein distance less than 3 from a known attribute it will be flagged as a typo and the build will fail.
+    #
+    # Otherwise the author is assumed to have implemented and used a new attribute which is declared elsewhere.
+
     $commonAttributes = [PowerShell].Assembly.GetTypes() |
         Where-Object { $_.Name -match 'Attribute$' -and $_.IsPublic } |
         ForEach-Object {
@@ -790,20 +807,25 @@ task TestAttributeSyntax {
                 }
                 $closestMatch = $commonAttributes |
                     Get-LevenshteinDistance @params |
-                    Where-Object Distance -lt ([Math]::Floor($attribute.TypeName.Name.Length / 2)) |
+                    Where-Object Distance -lt 3 |
                     Select-Object -First 1
 
-                Write-Warning ('Unknown attribute declared: {0}: {1} at line {2}, character {3}.{4}' -f @(
+                $message = 'Unknown attribute declared: {0}: {1} at line {2}, character {3}.'
+                if ($closestMatch) {
+                    $message = '{0} Suggested name: {1}' -f @(
+                        $message
+                        $closestMatch.DifferenceString
+                    )
+                    $hasSyntaxErrors = $true
+                }
+
+                Write-Warning ($message -f @(
                     $_.Name
                     $attribute.TypeName.FullName
                     $attribute.Extent.StartLineNumber
                     $attribute.Extent.StartColumnNumber
-                    @('', (' Suggested name: {0}' -f $closestMatch.DifferenceString))[[Boolean]$closestMatch]
                 ))
 
-                if ($closestMatch) {
-                    $hasSyntaxErrors = $true
-                }
             }
         }
     }
@@ -814,6 +836,8 @@ task TestAttributeSyntax {
 }
 
 task CopyModuleFiles {
+    # Copy files which should not be merged into the psm1 into the build area.
+
     try {
         $buildInfo |
             Get-BuildItem -Type Static |
@@ -824,6 +848,8 @@ task CopyModuleFiles {
 }
 
 task Merge {
+    # Merges module content into a single psm1 file.
+
     $writer = [System.IO.StreamWriter][System.IO.File]::Create($buildInfo.Path.Build.RootModule)
 
     $usingStatements = [System.Collections.Generic.HashSet[String]]::new()
@@ -861,6 +887,8 @@ task Merge {
 }
 
 task UpdateMetadata {
+    # Update the psd1 document.
+
     try {
         $path = $buildInfo.Path.Build.Manifest
 
@@ -933,8 +961,10 @@ task UpdateMetadata {
     }
 }
 
-task UpdateMarkdownHelp -If (Get-Module platyPS -ListAvailable) {
-    Start-Job -ArgumentList $buildInfo -ScriptBlock {
+task UpdateMarkdownHelp {
+    # Update markdown help documents.
+
+    $script =  {
         param (
             $buildInfo
         )
@@ -955,10 +985,18 @@ task UpdateMarkdownHelp -If (Get-Module platyPS -ListAvailable) {
         } catch {
             throw
         }
-    } | Receive-Job -Wait -ErrorAction Stop
+    }
+
+    if ($buildInfo.BuildSystem -eq 'Desktop') {
+        Start-Job -ArgumentList $buildInfo -ScriptBlock $script | Receive-Job -Wait -ErrorAction Stop
+    } else {
+        & $script -BuildInfo $buildInfo
+    }
 }
 
 task TestModuleImport {
+    # Test that the module imports.
+
     $script = {
         param (
             $buildInfo
@@ -982,7 +1020,9 @@ task TestModuleImport {
     }
 }
 
-task PSScriptAnalyzer -If (Get-Module PSScriptAnalyzer -ListAvailable) {
+task PSScriptAnalyzer {
+    # Invoke PSScriptAnalyzer tests.
+
     try {
         Push-Location $buildInfo.Path.Source.Module
         'priv*', 'pub*', 'InitializeModule.ps1' | Where-Object { Test-Path $_ } | ForEach-Object {
@@ -1002,6 +1042,8 @@ task PSScriptAnalyzer -If (Get-Module PSScriptAnalyzer -ListAvailable) {
 }
 
 task TestModule {
+    # Run Pester tests.
+
     if (-not (Get-ChildItem (Resolve-Path (Join-Path $buildInfo.Path.Source.Module 'test*')).Path -Filter *.tests.ps1 -Recurse -File)) {
         throw 'The PS project must have tests!'
     }
@@ -1044,7 +1086,9 @@ task TestModule {
     $pester | Export-CliXml $path
 }
 
-task AddAppveyorCommitMessage -If ($buildInfo.BuildSystem -eq 'AppVeyor') {
+task AddAppveyorCompilationMessage -If ($buildInfo.BuildSystem -eq 'AppVeyor') {
+    # Add a compilation message.
+
     $path = Join-Path $buildInfo.Path.Build.Output 'pester-output.xml'
     if (Test-Path $path) {
         $pester = Import-CliXml $path
@@ -1094,6 +1138,8 @@ task AddAppveyorCommitMessage -If ($buildInfo.BuildSystem -eq 'AppVeyor') {
 }
 
 task UploadAppVeyorTestResults -If ($buildInfo.BuildSystem -eq 'AppVeyor') {
+    # Upload any test results to AppVeyor.
+
     $path = Join-Path $buildInfo.Path.Build.Output ('{0}.xml' -f $buildInfo.ModuleName)
     if (Test-Path $path) {
         [System.Net.WebClient]::new().UploadFile(('https://ci.appveyor.com/api/testresults/nunit/{0}' -f $env:APPVEYOR_JOB_ID), $path)
@@ -1101,6 +1147,8 @@ task UploadAppVeyorTestResults -If ($buildInfo.BuildSystem -eq 'AppVeyor') {
 }
 
 task ValidateTestResults {
+    # Check the results of all of the different test tasks
+
     $testsFailed = $false
 
     $path = Join-Path $buildInfo.Path.Build.Output 'pester-output.xml'
@@ -1149,46 +1197,9 @@ task ValidateTestResults {
     }
 }
 
-task CreateCodeHealthReport -If (Get-Module PSCodeHealth -ListAvailable) {
-     $script = {
-        param (
-            $buildInfo
-        )
-
-        $path = Join-Path $buildInfo.Path.Source.Module 'test*'
-
-        if (Test-Path (Join-Path $path 'stub')) {
-            Get-ChildItem (Join-Path $path 'stub') -Filter *.psm1 -Recurse -Depth 1 | ForEach-Object {
-                Import-Module $_.FullName -Global -WarningAction SilentlyContinue
-            }
-        }
-
-        Import-Module $buildInfo.Path.Build.Manifest -Global -ErrorAction Stop
-        $params = @{
-            Path           = $buildInfo.Path.Build.RootModule
-            Recurse        = $true
-            TestsPath      = $path
-            HtmlReportPath = Join-Path $buildInfo.Path.Build.Output 'code-health.html'
-        }
-        Invoke-PSCodeHealth @params
-    }
-
-    if ($buildInfo.BuildSystem -eq 'Desktop') {
-        Start-Job -ArgumentList $buildInfo -ScriptBlock $script | Receive-Job -Wait
-    } else {
-        & $script -BuildInfo $buildInfo
-    }
-}
-
-task PublishToCurrentUser {
-    $path = '{0}\Documents\WindowsPowerShell\Modules\{1}' -f $home, $buildInfo.ModuleName
-    if (-not (Test-Path $path)) {
-        $null = New-Item $path -ItemType Directory
-    }
-    Copy-Item $buildInfo.Path.Build.Module -Destination $path -Recurse -Force
-}
-
 task PublishToPSGallery -If ($env:NuGetApiKey) {
+    # Publish the module to the PSGallery if a nuget key is in the NuGetApiKey environment variable.
+
     Publish-Module -Path $buildInfo.Path.Build.Module -NuGetApiKey $env:NuGetApiKey -Repository PSGallery -ErrorAction Stop
 }
 

@@ -1,4 +1,6 @@
 BuildTask Clean -Stage Build -Order 0 -Definition {
+    # Clean old content from the build directories.
+
     $erroractionprefence = 'Stop'
 
     try {

@@ -1,6 +1,8 @@
-﻿BuildTask AddAppveyorCommitMessage -Stage Test -Order 3 -If {
+﻿BuildTask AddAppveyorCompilationMessage -Stage Test -Order 3 -If {
     $buildInfo.BuildSystem -eq 'AppVeyor'
 } -Definition {
+    # Add a compilation message.
+
     $path = Join-Path $buildInfo.Path.Build.Output 'pester-output.xml'
     if (Test-Path $path) {
         $pester = Import-CliXml $path

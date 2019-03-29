@@ -1,4 +1,6 @@
 BuildTask UpdateMetadata -Stage Build -Order 5 -Definition {
+    # Update the psd1 document.
+
     try {
         $path = $buildInfo.Path.Build.Manifest
 

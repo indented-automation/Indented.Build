@@ -1,6 +1,8 @@
 BuildTask ImportNuget -Stage Build -If {
     Test-Path (Join-Path $buildInfo.Path.Source.Module 'packages.config')
 } -Definition {
+    # Downloads and embeds dlls from nuget packages using a packages.config file.
+
     $destinationPath = Join-Path $buildInfo.Path.Build.Module 'lib'
     if (-not (Test-Path $destinationPath)) {
         $null = New-Item $destinationPath -ItemType Directory

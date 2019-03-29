@@ -1,4 +1,6 @@
 BuildTask Merge -Stage Build -Order 4 -Definition {
+    # Merges module content into a single psm1 file.
+
     $writer = [System.IO.StreamWriter][System.IO.File]::Create($buildInfo.Path.Build.RootModule)
 
     $usingStatements = [System.Collections.Generic.HashSet[String]]::new()

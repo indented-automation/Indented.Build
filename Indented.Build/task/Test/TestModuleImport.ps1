@@ -1,4 +1,6 @@
 BuildTask TestModuleImport -Stage Test -Order 0 -Definition {
+    # Test that the module imports.
+
     $script = {
         param (
             $buildInfo

@@ -5,6 +5,8 @@
     (Test-Path $appVeyorYml) -and
     (Get-Item $appVeyorYml).Length -eq 0
 } -Definition {
+    # Adds appveyor.yml is an empty appveyor.yml file exists.
+
     $path = Join-Path $buildInfo.ProjectRoot 'appveyor.yml'
     $content = @(
         'os: WMF 5'

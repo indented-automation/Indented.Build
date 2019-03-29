@@ -1,4 +1,6 @@
 BuildTask TestSyntax -Stage Build -Order 1 -Definition {
+    # Attempt to find syntax errors in module files.
+
     $hasSyntaxErrors = $false
 
     $buildInfo | Get-BuildItem -Type ShouldMerge -ExcludeClass | ForEach-Object {

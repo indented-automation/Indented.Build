@@ -1,4 +1,6 @@
 BuildTask TestModule -Stage Test -Order 2 -Definition {
+    # Run Pester tests.
+
     if (-not (Get-ChildItem (Resolve-Path (Join-Path $buildInfo.Path.Source.Module 'test*')).Path -Filter *.tests.ps1 -Recurse -File)) {
         throw 'The PS project must have tests!'
     }

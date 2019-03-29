@@ -1,18 +1,22 @@
 BuildTask InstallRequiredModules -Stage Setup -Order 1 -Definition {
+    # Installs the modules required to execute the tasks in this script into current user scope.
+
     $erroractionpreference = 'Stop'
     try {
-        Update-Module PSDepend -Scope CurrentUser
-        Invoke-PSDepend -InputObject @{
-            PSDependsOptions = @{
-                Target    = $buildInfo.Path.Build.Modules
-                AddToPath = $true
+        if (Get-Module PSDepend -ListAvailable) {
+            Update-Module PSDepend -ErrorAction SilentlyContinue
+        } else {
+            Install-Module PSDepend -Scope CurrentUser
+        }
+        Invoke-PSDepend -Install -Import -Force -InputObject @{
+            PSDependOptions = @{
+                Target    = 'CurrentUser'
             }
 
             Configuration    = 'latest'
             Pester           = 'latest'
             PlatyPS          = 'latest'
             PSScriptAnalyzer = 'latest'
-            PSCodeHealth     = 'latest'
         }
     } catch {
         throw

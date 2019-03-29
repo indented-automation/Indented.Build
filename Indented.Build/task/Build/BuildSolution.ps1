@@ -1,6 +1,10 @@
 BuildTask BuildSolution -Stage Build -Order 3 -If {
     Test-Path (Join-Path $buildInfo.Path.Source.Module 'class*\*.sln')
 } -Definition {
+    # Use msbuild to build a If a Visual Studio solution.
+    #
+    # Executes if a solution file is present in the class directory.
+
     try {
         Push-Location (Resolve-Path 'class*').Path
 

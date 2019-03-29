@@ -1,4 +1,6 @@
-﻿BuildTask ValidateTestResults -Stage Test -Order 4 -Definition {
+﻿BuildTask ValidateTestResults -Stage Test -Order 1025 -Definition {
+    # Check the results of all of the different test tasks
+
     $testsFailed = $false
 
     $path = Join-Path $buildInfo.Path.Build.Output 'pester-output.xml'

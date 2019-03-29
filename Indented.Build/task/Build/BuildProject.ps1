@@ -2,6 +2,10 @@ BuildTask BuildProject -Stage Build -Order 0 -If {
     (Test-Path (Join-Path $buildInfo.Path.Source.Module 'class*\*.*proj')) -and
     -not (Test-Path (Join-Path $buildInfo.Path.Source.Module 'class*\*.sln'))
 } -Definition {
+    # Use msbuild to build a If a Visual Studio project.
+    #
+    # Executes if a project file is present in the class directory, and a solution file is not.
+
     try {
         Push-Location (Resolve-Path 'class*').Path
 
