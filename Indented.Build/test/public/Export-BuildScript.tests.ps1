@@ -52,7 +52,8 @@ InModuleScope Indented.Build {
 
         Context 'Command insertion' {
             BeforeAll {
-                $script = Export-BuildScript -BuildInfo $buildInfo
+                Export-BuildScript -BuildInfo $buildInfo -Path 'TestDrive:\.build.ps1'
+                $script = Get-Content -Path 'TestDrive:\.build.ps1' -Raw
             }
 
             It 'Inserts commands required by Get-BuildInfo' {
@@ -75,7 +76,8 @@ InModuleScope Indented.Build {
 
         Context 'Task insertion' {
             BeforeAll {
-                $script = Export-BuildScript -BuildInfo $buildInfo
+                Export-BuildScript -BuildInfo $buildInfo -Path 'TestDrive:\.build.ps1'
+                $script = Get-Content -Path 'TestDrive:\.build.ps1' -Raw
             }
 
             It 'Inserts the task <Name> returned by Get-BuildTask' -TestCases @(
@@ -105,7 +107,8 @@ InModuleScope Indented.Build {
 
         Context 'Summary tasks insertion' {
             BeforeAll {
-                $script = Export-BuildScript -BuildInfo $buildInfo
+                Export-BuildScript -BuildInfo $buildInfo -Path 'TestDrive:\.build.ps1'
+                $script = Get-Content -Path 'TestDrive:\.build.ps1' -Raw
             }
 
             It 'Inserts summary tasks' {
@@ -116,18 +119,6 @@ InModuleScope Indented.Build {
 
             It 'Inserts a default task' {
                 $script | Should -Match 'task default'
-            }
-        }
-
-        Context 'File generation' {
-            BeforeAll {
-                $path = 'TestDrive:\.build.ps1'
-                $script = Export-BuildScript -BuildInfo $buildInfo -Path $path
-            }
-
-            It 'Output: File only' {
-                $script | Should -BeNullOrEmpty
-                $path | Should -Exist
             }
         }
     }

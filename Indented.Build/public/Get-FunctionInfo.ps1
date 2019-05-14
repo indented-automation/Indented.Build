@@ -18,7 +18,7 @@ function Get-FunctionInfo {
     [OutputType([System.Management.Automation.FunctionInfo])]
     param (
         # The path to a file containing one or more functions.
-        [Parameter(Position = 1, ValueFromPipelineByPropertyName, ParameterSetName = 'FromPath')]
+        [Parameter(Position = 1, ValueFromPipeline, ValueFromPipelineByPropertyName, ParameterSetName = 'FromPath')]
         [Alias('FullName')]
         [String]$Path,
 
@@ -43,34 +43,43 @@ function Get-FunctionInfo {
 
     process {
         if ($pscmdlet.ParameterSetName -eq 'FromPath') {
+            $Path = $pscmdlet.GetUnresolvedProviderPathFromPSPath($Path)
+
             try {
-                $scriptBlock = [ScriptBlock]::Create((Get-Content $Path -Raw))
+                $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+                    $Path,
+                    [Ref]$tokens,
+                    [Ref]$errors
+                )
             } catch {
-                $ErrorRecord = @{
-                    Exception = $_.Exception.InnerException
-                    ErrorId   = 'InvalidScriptBlock'
+                $errorRecord = @{
+                    Exception = $_.Exception.GetBaseException()
+                    ErrorId   = 'AstParserFailed'
                     Category  = 'OperationStopped'
                 }
                 Write-Error @ErrorRecord
             }
+        } else {
+            $ast = $ScriptBlock.Ast
         }
 
-        if ($scriptBlock) {
-            $scriptBlock.Ast.FindAll( {
-                    param( $ast )
+        $ast.FindAll( {
+                param( $childAst )
 
-                    $ast -is [System.Management.Automation.Language.FunctionDefinitionAst]
-                },
-                $IncludeNested
-            ) | ForEach-Object {
-                try {
-                    $internalScriptBlock = $_.Body.GetScriptBlock()
-                } catch {
-                    Write-Debug $_.Exception.Message
-                }
-                if ($internalScriptBlock) {
-                    $constructor.Invoke(([String]$_.Name, $internalScriptBlock, $null))
-                }
+                $childAst -is [System.Management.Automation.Language.FunctionDefinitionAst]
+            },
+            $IncludeNested
+        ) | ForEach-Object {
+            try {
+                $internalScriptBlock = $_.Body.GetScriptBlock()
+            } catch {
+                Write-Debug $_.Exception.Message
+            }
+            if ($internalScriptBlock) {
+                $extent = $_.Extent | Select-Object File, StartLineNumber, EndLineNumber
+
+                $constructor.Invoke(([String]$_.Name, $internalScriptBlock, $null)) |
+                    Add-Member -NotePropertyName Extent -NotePropertyValue $extent -PassThru
             }
         }
     }

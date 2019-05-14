@@ -5,27 +5,21 @@ online version:
 schema: 2.0.0
 ---
 
-# Get-BuildTask
+# Convert-CodeCoverage
 
 ## SYNOPSIS
-Get build tasks.
+Converts code coverage line and file reference from root module to file.
 
 ## SYNTAX
 
-### ForBuild (Default)
 ```
-Get-BuildTask [-BuildInfo] <PSObject> [-Name <String>] [<CommonParameters>]
-```
-
-### List
-```
-Get-BuildTask [-Name <String>] [-ListAvailable] [<CommonParameters>]
+Convert-CodeCoverage [-CodeCoverage] <PSObject> -BuildInfo <PSObject> [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-Get the build tasks deemed to be applicable to this build.
+When tests are executed against a merged module, all lines are relative to the psm1 file.
 
-If the ListAvailable parameter is supplied, all available tasks will be returned.
+This command updates line references to match the development file set.
 
 ## EXAMPLES
 
@@ -38,47 +32,32 @@ PS C:\> {{ Add example code here }}
 
 ## PARAMETERS
 
-### -BuildInfo
-A build information object used to determine which tasks will apply to the current build.
+### -CodeCoverage
+{{ Fill CodeCoverage Description }}
 
 ```yaml
 Type: PSObject
-Parameter Sets: ForBuild
+Parameter Sets: (All)
 Aliases:
 
 Required: True
 Position: 2
 Default value: None
-Accept pipeline input: True (ByValue)
+Accept pipeline input: True (ByPropertyName)
 Accept wildcard characters: False
 ```
 
-### -Name
-Filter tasks by task name.
+### -BuildInfo
+{{ Fill BuildInfo Description }}
 
 ```yaml
-Type: String
+Type: PSObject
 Parameter Sets: (All)
-Aliases:
-
-Required: False
-Position: Named
-Default value: *
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
-### -ListAvailable
-List all available tasks, irrespective of conditions applied to the task.
-
-```yaml
-Type: SwitchParameter
-Parameter Sets: List
 Aliases:
 
 Required: True
 Position: Named
-Default value: False
+Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
@@ -90,7 +69,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### BuildTask
 ## NOTES
 
 ## RELATED LINKS

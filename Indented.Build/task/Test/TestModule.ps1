@@ -26,9 +26,10 @@ BuildTask TestModule -Stage Test -Order 2 -Definition {
                     UseExisting = $true
                 }
             }
-            CodeCoverage = $buildInfo.Path.Build.RootModule
-            OutputFile   = Join-Path $buildInfo.Path.Build.Output ('{0}-nunit.xml' -f $buildInfo.ModuleName)
-            PassThru     = $true
+            CodeCoverage           = $buildInfo.Path.Build.RootModule
+            CodeCoverageOutputFile = Join-Path $buildInfo.Path.Build.Output 'pester-codecoverage.xml'
+            OutputFile             = Join-Path $buildInfo.Path.Build.Output ('{0}-nunit.xml' -f $buildInfo.ModuleName)
+            PassThru               = $true
         }
         Invoke-Pester @params
     }
@@ -38,6 +39,7 @@ BuildTask TestModule -Stage Test -Order 2 -Definition {
     } else {
         $pester = & $script -BuildInfo $buildInfo
     }
+    $pester | Convert-CodeCoverage -BuildInfo $buildInfo
 
     $path = Join-Path $buildInfo.Path.Build.Output 'pester-output.xml'
     $pester | Export-CliXml $path

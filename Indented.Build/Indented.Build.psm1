@@ -9,6 +9,7 @@ foreach ($file in $private) {
 $public = @(
     'Add-PesterTemplate'
     'BuildTask'
+    'Convert-CodeCoverage'
     'ConvertTo-ChocoPackage'
     'Enable-Metadata'
     'Export-BuildScript'
@@ -29,6 +30,7 @@ foreach ($file in $public) {
 $functionsToExport = @(
     'Add-PesterTemplate'
     'BuildTask'
+    'Convert-CodeCoverage'
     'ConvertTo-ChocoPackage'
     'Enable-Metadata'
     'Export-BuildScript'

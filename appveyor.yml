@@ -1,10 +1,6 @@
-os: WMF 5
+image: Visual Studio 2017
 
-version: 2.16.{build}
-
-environment:
-  NuGetApiKey:
-    secure: kp9PPkiJ/iiPfX0b1m/NYh88GLaok3NlJc1XAr6rWH+umpCiZVwvsK9CVfMNYElL
+version: 3.0.0
 
 skip_commits:
   message: /updated? readme.*s/
@@ -17,7 +13,14 @@ install:
       Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
       Install-Module Configuration, Pester, InvokeBuild
       Set-Location $env:APPVEYOR_BUILD_FOLDER\$env:APPVEYOR_PROJECT_NAME
-      Invoke-Build -Task GetBuildInfo
 
 build_script:
-  - ps: Invoke-Build
+  - ps: |
+      Invoke-Build .\.build.bootstrap.ps1 -Task Build
+      Invoke-Build -Task Setup, Build
+
+test_script:
+  - ps: |
+    Invoke-Build -Task Setup, Test
+  - pwsh: |
+    Invoke-Build -Task Setup, Test

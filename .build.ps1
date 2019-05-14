@@ -41,6 +41,54 @@ function GetBuildSystem {
     return 'Desktop'
 }
 
+function Convert-CodeCoverage {
+    <#
+    .SYNOPSIS
+        Converts code coverage line and file reference from root module to file.
+    .DESCRIPTION
+        When tests are executed against a merged module, all lines are relative to the psm1 file.
+
+        This command updates line references to match the development file set.
+    #>
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory, Position = 1, ValueFromPipelineByPropertyName)]
+        [PSObject]$CodeCoverage,
+
+        [Parameter(Mandatory)]
+        [PSTypeName('Indented.BuildInfo')]
+        [PSObject]$BuildInfo
+    )
+
+    begin {
+        $module = $buildInfo.Path.Build.RootModule |
+            Get-FunctionInfo |
+            Group-Object Name -AsHashTable
+
+        $functions = $BuildInfo |
+            Get-BuildItem -Type ShouldMerge |
+            Get-FunctionInfo |
+            Group-Object Name -AsHashTable
+    }
+
+    process {
+        foreach ($category in 'MissedCommands', 'HitCommands') {
+            foreach ($command in $CodeCoverage.$category) {
+                $command.File = $functions[$command.Function].Extent.File
+
+                $command.StartLine = $command.Line = $command.StartLine -
+                                     $module[$command.Function].Extent.StartLineNumber +
+                                     $functions[$command.Function].Extent.StartLineNumber
+
+                $command.EndLine = $command.EndLine -
+                                   $module[$command.Function].Extent.StartLineNumber +
+                                   $functions[$command.Function].Extent.StartLineNumber
+            }
+        }
+    }
+}
+
 function ConvertTo-ChocoPackage {
     <#
     .SYNOPSIS
@@ -502,7 +550,7 @@ function Get-FunctionInfo {
     [OutputType([System.Management.Automation.FunctionInfo])]
     param (
         # The path to a file containing one or more functions.
-        [Parameter(Position = 1, ValueFromPipelineByPropertyName, ParameterSetName = 'FromPath')]
+        [Parameter(Position = 1, ValueFromPipeline, ValueFromPipelineByPropertyName, ParameterSetName = 'FromPath')]
         [Alias('FullName')]
         [String]$Path,
 
@@ -527,34 +575,43 @@ function Get-FunctionInfo {
 
     process {
         if ($pscmdlet.ParameterSetName -eq 'FromPath') {
+            $Path = $pscmdlet.GetUnresolvedProviderPathFromPSPath($Path)
+
             try {
-                $scriptBlock = [ScriptBlock]::Create((Get-Content $Path -Raw))
+                $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+                    $Path,
+                    [Ref]$tokens,
+                    [Ref]$errors
+                )
             } catch {
-                $ErrorRecord = @{
-                    Exception = $_.Exception.InnerException
-                    ErrorId   = 'InvalidScriptBlock'
+                $errorRecord = @{
+                    Exception = $_.Exception.GetBaseException()
+                    ErrorId   = 'AstParserFailed'
                     Category  = 'OperationStopped'
                 }
                 Write-Error @ErrorRecord
             }
+        } else {
+            $ast = $ScriptBlock.Ast
         }
 
-        if ($scriptBlock) {
-            $scriptBlock.Ast.FindAll( {
-                    param( $ast )
+        $ast.FindAll( {
+                param( $childAst )
 
-                    $ast -is [System.Management.Automation.Language.FunctionDefinitionAst]
-                },
-                $IncludeNested
-            ) | ForEach-Object {
-                try {
-                    $internalScriptBlock = $_.Body.GetScriptBlock()
-                } catch {
-                    Write-Debug $_.Exception.Message
-                }
-                if ($internalScriptBlock) {
-                    $constructor.Invoke(([String]$_.Name, $internalScriptBlock, $null))
-                }
+                $childAst -is [System.Management.Automation.Language.FunctionDefinitionAst]
+            },
+            $IncludeNested
+        ) | ForEach-Object {
+            try {
+                $internalScriptBlock = $_.Body.GetScriptBlock()
+            } catch {
+                Write-Debug $_.Exception.Message
+            }
+            if ($internalScriptBlock) {
+                $extent = $_.Extent | Select-Object File, StartLineNumber, EndLineNumber
+
+                $constructor.Invoke(([String]$_.Name, $internalScriptBlock, $null)) |
+                    Add-Member -NotePropertyName Extent -NotePropertyValue $extent -PassThru
             }
         }
     }
@@ -1069,9 +1126,10 @@ task TestModule {
                     UseExisting = $true
                 }
             }
-            CodeCoverage = $buildInfo.Path.Build.RootModule
-            OutputFile   = Join-Path $buildInfo.Path.Build.Output ('{0}-nunit.xml' -f $buildInfo.ModuleName)
-            PassThru     = $true
+            CodeCoverage           = $buildInfo.Path.Build.RootModule
+            CodeCoverageOutputFile = Join-Path $buildInfo.Path.Build.Output 'pester-codecoverage.xml'
+            OutputFile             = Join-Path $buildInfo.Path.Build.Output ('{0}-nunit.xml' -f $buildInfo.ModuleName)
+            PassThru               = $true
         }
         Invoke-Pester @params
     }
@@ -1081,6 +1139,7 @@ task TestModule {
     } else {
         $pester = & $script -BuildInfo $buildInfo
     }
+    $pester | Convert-CodeCoverage -BuildInfo $buildInfo
 
     $path = Join-Path $buildInfo.Path.Build.Output 'pester-output.xml'
     $pester | Export-CliXml $path

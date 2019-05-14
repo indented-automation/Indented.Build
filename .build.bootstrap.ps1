@@ -183,21 +183,27 @@ task GetBuildInfo {
     }
 }
 
+
 task InstallRequiredModules {
+    # Installs the modules required to execute the tasks in this script into current user scope.
+
     $erroractionpreference = 'Stop'
     try {
-        $nugetPackageProvider = Get-PackageProvider NuGet -ErrorAction SilentlyContinue
-        if (-not $nugetPackageProvider -or $nugetPackageProvider.Version -lt [Version]'2.8.5.201') {
-            $null = Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+        if (Get-Module PSDepend -ListAvailable) {
+            Update-Module PSDepend -ErrorAction SilentlyContinue
+        } else {
+            Install-Module PSDepend -Scope CurrentUser
         }
-        if ((Get-PSRepository PSGallery).InstallationPolicy -ne 'Trusted') {
-            Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-        }
+        Invoke-PSDepend -Install -Import -Force -InputObject @{
+            PSDependOptions = @{
+                Target    = 'CurrentUser'
+            }
 
-        'Configuration', 'Pester' | Where-Object { -not (Get-Module $_ -ListAvailable) } | ForEach-Object {
-            Install-Module $_ -Scope CurrentUser
+            Configuration    = 'latest'
+            Pester           = 'latest'
+            PlatyPS          = 'latest'
+            PSScriptAnalyzer = 'latest'
         }
-        Import-Module 'Configuration', 'Pester' -Global
     } catch {
         throw
     }
@@ -207,8 +213,10 @@ task Clean {
     $erroractionprefence = 'Stop'
 
     try {
-        if (Get-Module $buildInfo.ModuleName) {
-            Remove-Module $buildInfo.ModuleName
+        if (Get-Module -Name $buildInfo.ModuleName) {
+            Write-Host "Removing $($buildInfo.ModuleName)"
+
+            Remove-Module -Name $buildInfo.ModuleName
         }
 
         if (Test-Path $buildInfo.Path.Build.Module.Parent.FullName) {

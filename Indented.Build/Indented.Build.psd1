@@ -14,6 +14,9 @@ RootModule = 'Indented.Build.psm1'
 # Version number of this module.
 ModuleVersion = '3.0.0'
 
+# Supported PSEditions
+CompatiblePSEditions = @('Core', 'Desktop')
+
 # ID used to uniquely identify this module
 GUID = '80b18c29-d513-43fa-891d-49ba75ed3740'
 
@@ -48,7 +51,7 @@ PowerShellVersion = '5.1'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-RequiredModules = @('InvokeBuild', 'Configuration')
+RequiredModules = @('InvokeBuild')
 
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
