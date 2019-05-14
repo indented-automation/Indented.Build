@@ -48,8 +48,8 @@ function Get-FunctionInfo {
             try {
                 $ast = [System.Management.Automation.Language.Parser]::ParseFile(
                     $Path,
-                    [Ref]$tokens,
-                    [Ref]$errors
+                    [Ref]$null,
+                    [Ref]$null
                 )
             } catch {
                 $errorRecord = @{
