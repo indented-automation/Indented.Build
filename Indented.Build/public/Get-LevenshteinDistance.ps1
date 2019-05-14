@@ -24,7 +24,11 @@ function Get-LevenshteinDistance {
 
     process {
         if ($DifferenceString.Length -eq 0) {
-            return $ReferenceString.Length
+            return [PSCustomObject]@{
+                ReferenceString  = $ReferenceString
+                DifferenceString = $DifferenceString
+                Distance         = $ReferenceString.Length
+            }
         }
 
         $costs = [Int[]]::new($DifferenceString.Length)

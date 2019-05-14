@@ -580,8 +580,8 @@ function Get-FunctionInfo {
             try {
                 $ast = [System.Management.Automation.Language.Parser]::ParseFile(
                     $Path,
-                    [Ref]$tokens,
-                    [Ref]$errors
+                    [Ref]$null,
+                    [Ref]$null
                 )
             } catch {
                 $errorRecord = @{
@@ -643,7 +643,11 @@ function Get-LevenshteinDistance {
 
     process {
         if ($DifferenceString.Length -eq 0) {
-            return $ReferenceString.Length
+            return [PSCustomObject]@{
+                ReferenceString  = $ReferenceString
+                DifferenceString = $DifferenceString
+                Distance         = $ReferenceString.Length
+            }
         }
 
         $costs = [Int[]]::new($DifferenceString.Length)

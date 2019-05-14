@@ -16,6 +16,9 @@ if (-not $UseExisting) {
 
 InModuleScope Indented.Build {
     Describe Convert-CodeCoverage -Tag CI {
-    }
+        BeforeAll {
 
+        }
+
+    }
 }

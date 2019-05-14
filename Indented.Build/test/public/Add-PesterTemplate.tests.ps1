@@ -16,7 +16,42 @@ if (-not $UseExisting) {
 
 InModuleScope Indented.Build {
     Describe Add-PesterTemplate -Tag CI {
+        BeforeAll {
+            Mock Get-BuildItem {
+                Get-Item TestDrive:\Module\Module\public\function.ps1
+            }
+            Mock Get-FunctionInfo {
+                [PSCustomObject]@{
+                    Name = 'functionName'
+                }
+            }
+
+            New-Item TestDrive:\Module\Module\public\function.ps1 -Force
+
+            $defaultParams = @{
+                BuildInfo = [PSCustomObject]@{
+                    ModuleName = 'Module'
+                    Path       = [PSCustomObject]@{
+                        Source = [PSCustomObject]@{
+                            Module = (Get-Item 'TestDrive:\Module\Module').FullName
+                        }
+                    }
+                    PSTypeName = 'Indented.BuildInfo'
+                }
+            }
+        }
+
+        It 'Generates missing .tests.ps1 files' {
+            Add-PesterTemplate @defaultParams
+
+            'TestDrive:\Module\Module\test\public\function.tests.ps1' | Should -Exist
+
+            Get-ChildItem TestDrive -Recurse -Force | Out-String | Write-Host
+        }
+
+        It 'Writes a header to generated files' {
+            'TestDrive:\Module\Module\test\public\function.tests.ps1' | Should -FileContentMatch 'region:TestFileHeader'
+        }
+
     }
-
 }
-
