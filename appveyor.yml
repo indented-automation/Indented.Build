@@ -20,7 +20,5 @@ build_script:
       Invoke-Build -Task Setup, Build
 
 test_script:
-  - ps: |
-    Invoke-Build -Task Setup, Test
-  - pwsh: |
-    Invoke-Build -Task Setup, Test
+  - ps: Invoke-Build -Task Setup, Test
+  - pwsh: Invoke-Build -Task Setup, Test
