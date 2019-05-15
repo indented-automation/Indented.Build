@@ -28,17 +28,19 @@ InModuleScope Indented.Build {
         }
 
         Context 'Normal operation' {
-            BeforeAll {
+            It 'Returns an object of type Indented.BuildInfo' {
                 $buildInfo = Get-BuildInfo @defaultParams
-            }
 
-            It 'Object: TypeName: Is BuildInfo' {
                 $buildInfo | Should -Not -BeNullOrEmpty
                 $buildInfo.PSTypeNames | Should -Contain 'Indented.BuildInfo'
             }
 
-            It 'Command: Calls GetBuildSystem' {
-                Assert-MockCalled GetBuildSystem
+            It 'Uses GetBuildSystem to discover the CI platform' {
+                $buildInfo = Get-BuildInfo @defaultParams
+
+                $buildInfo.BuildSystem | Should -Be 'Desktop'
+
+                Assert-MockCalled GetBuildSystem -Scope It
             }
         }
 

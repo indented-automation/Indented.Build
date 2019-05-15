@@ -1,11 +1,10 @@
 ﻿BuildTask UpdateAppVeyorVersion -Stage Setup -Order 3 -If {
-    Test-Path (Join-Path $psscriptroot 'appveyor.yml')
+    Test-Path (Join-Path $buildInfo.Path.ProjectRoot 'appveyor.yml')
 } -Definition {
-    # Unnecessary?
-
-    $versionString = '{0}.{1}.{{build}}' -f @(
+    $versionString = '{0}.{1}.{2}.{{build}}' -f @(
         $buildInfo.Version.Major
         $buildInfo.Version.Minor
+        $buildInfo.Version.Build
     )
 
     $path = Join-Path $buildInfo.Path.ProjectRoot 'appveyor.yml'

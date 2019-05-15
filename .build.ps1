@@ -12,7 +12,8 @@ task default Setup,
              Publish
 
 task Setup SetBuildInfo,
-           InstallRequiredModules
+           InstallRequiredModules,
+           UpdateAppVeyorVersion
 
 task Build Clean,
            TestSyntax,
@@ -578,11 +579,15 @@ function Get-FunctionInfo {
             $Path = $pscmdlet.GetUnresolvedProviderPathFromPSPath($Path)
 
             try {
+                $tokens = $errors = @()
                 $ast = [System.Management.Automation.Language.Parser]::ParseFile(
                     $Path,
-                    [Ref]$null,
-                    [Ref]$null
+                    [Ref]$tokens,
+                    [Ref]$errors
                 )
+                if ($errors[0].ErrorId -eq 'FileReadError') {
+                    throw [InvalidOperationException]::new($errors[0].Message)
+                }
             } catch {
                 $errorRecord = @{
                     Exception = $_.Exception.GetBaseException()
@@ -713,7 +718,9 @@ task BuildAll {
     }
 }
 
-task SetBuildInfo -If (-not $Script:BuildInfo) {
+task SetBuildInfo -If (
+-not $Script:BuildInfo
+) {
     # BuildInfo is discovered. If more than one module is available to be built an error will be raised.
 
     $params = @{}
@@ -750,6 +757,21 @@ task InstallRequiredModules {
     } catch {
         throw
     }
+}
+
+task UpdateAppVeyorVersion -If (
+Test-Path (Join-Path $buildInfo.Path.ProjectRoot 'appveyor.yml')
+) {
+    $versionString = '{0}.{1}.{2}.{{build}}' -f @(
+        $buildInfo.Version.Major
+        $buildInfo.Version.Minor
+        $buildInfo.Version.Build
+    )
+
+    $path = Join-Path $buildInfo.Path.ProjectRoot 'appveyor.yml'
+    $content = Get-Content $path -Raw
+    $content = $content -replace 'version: .+', ('version: {0}' -f $versionString)
+    Set-Content $path -Value $content -NoNewLine
 }
 
 task Clean {
@@ -1149,7 +1171,9 @@ task TestModule {
     $pester | Export-CliXml $path
 }
 
-task AddAppveyorCompilationMessage -If ($buildInfo.BuildSystem -eq 'AppVeyor') {
+task AddAppveyorCompilationMessage -If (
+$buildInfo.BuildSystem -eq 'AppVeyor'
+) {
     # Add a compilation message.
 
     $path = Join-Path $buildInfo.Path.Build.Output 'pester-output.xml'
@@ -1200,7 +1224,9 @@ task AddAppveyorCompilationMessage -If ($buildInfo.BuildSystem -eq 'AppVeyor') {
     }
 }
 
-task UploadAppVeyorTestResults -If ($buildInfo.BuildSystem -eq 'AppVeyor') {
+task UploadAppVeyorTestResults -If (
+$buildInfo.BuildSystem -eq 'AppVeyor'
+) {
     # Upload any test results to AppVeyor.
 
     $path = Join-Path $buildInfo.Path.Build.Output ('{0}.xml' -f $buildInfo.ModuleName)
@@ -1260,7 +1286,9 @@ task ValidateTestResults {
     }
 }
 
-task PublishToPSGallery -If ($env:NuGetApiKey) {
+task PublishToPSGallery -If (
+$env:NuGetApiKey
+) {
     # Publish the module to the PSGallery if a nuget key is in the NuGetApiKey environment variable.
 
     Publish-Module -Path $buildInfo.Path.Build.Module -NuGetApiKey $env:NuGetApiKey -Repository PSGallery -ErrorAction Stop

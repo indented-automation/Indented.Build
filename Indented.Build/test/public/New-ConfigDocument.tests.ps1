@@ -16,7 +16,28 @@ if (-not $UseExisting) {
 
 InModuleScope Indented.Build {
     Describe New-ConfigDocument -Tag CI {
-    }
+        BeforeAll {
+            New-Item TestDrive:\Module\Module -ItemType Directory -Force
 
+            $defaultParams = @{
+                BuildInfo = [PSCustomObject]@{
+                    ModuleName = 'Module'
+                    Path       = [PSCustomObject]@{
+                        ProjectRoot = Get-Item 'TestDrive:\Module'
+                        Source = [PSCustomObject]@{
+                            Module = Get-Item 'TestDrive:\Module\Module'
+                        }
+                    }
+                    PSTypeName = 'Indented.BuildInfo'
+                }
+            }
+        }
+
+        It 'Creates a build configuration file' {
+            New-ConfigDocument @defaultParams
+
+            'TestDrive:\Module\Module\buildConfig.psd1' | Should -Exist
+        }
+    }
 }
 

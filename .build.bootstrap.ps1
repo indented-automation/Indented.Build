@@ -214,8 +214,6 @@ task Clean {
 
     try {
         if (Get-Module -Name $buildInfo.ModuleName) {
-            Write-Host "Removing $($buildInfo.ModuleName)"
-
             Remove-Module -Name $buildInfo.ModuleName
         }
 

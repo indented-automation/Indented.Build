@@ -46,11 +46,15 @@ function Get-FunctionInfo {
             $Path = $pscmdlet.GetUnresolvedProviderPathFromPSPath($Path)
 
             try {
+                $tokens = $errors = @()
                 $ast = [System.Management.Automation.Language.Parser]::ParseFile(
                     $Path,
-                    [Ref]$null,
-                    [Ref]$null
+                    [Ref]$tokens,
+                    [Ref]$errors
                 )
+                if ($errors[0].ErrorId -eq 'FileReadError') {
+                    throw [InvalidOperationException]::new($errors[0].Message)
+                }
             } catch {
                 $errorRecord = @{
                     Exception = $_.Exception.GetBaseException()

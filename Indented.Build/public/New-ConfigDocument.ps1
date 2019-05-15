@@ -22,11 +22,7 @@ function New-ConfigDocument {
     )
 
     process {
-        if ($BuildInfo) {
-            $documentPath = Join-Path $BuildInfo.Path.Source.Module 'buildConfig.psd1'
-        } else {
-            $documentPath = Join-Path $Path 'buildConfig.psd1'
-        }
+        $documentPath = Join-Path $BuildInfo.Path.Source.Module 'buildConfig.psd1'
 
         $eolChar = switch -Regex ([Environment]::NewLine) {
             '\r\n' { '`r`n'; break }

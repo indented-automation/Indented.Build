@@ -15,10 +15,6 @@ function Start-Build {
         # The task categories to execute.
         [String[]]$BuildType = ('Setup', 'Build', 'Test'),
 
-        # The release type to create.
-        [ValidateSet('Build', 'Minor', 'Major', 'None')]
-        [String]$ReleaseType = 'Build',
-
         [Parameter(ValueFromPipeline)]
         [PSTypeName('Indented.BuildInfo')]
         [PSObject[]]$BuildInfo = (Get-BuildInfo),

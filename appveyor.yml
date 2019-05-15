@@ -1,6 +1,9 @@
 image: Visual Studio 2017
 
-version: 3.0.0.{build}
+version: 3.0.1.{build}
+
+branches:
+  only: master
 
 skip_commits:
   message: /updated? readme.*s/
@@ -13,12 +16,15 @@ install:
       Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
       Install-Module Configuration, Pester, InvokeBuild -Force
       Set-Location $env:APPVEYOR_BUILD_FOLDER
+  - pwsh: Set-Location $env:APPVEYOR_BUILD_FOLDER
 
 build_script:
   - ps: |
       Invoke-Build .\.build.bootstrap.ps1 -Task Build
-      Invoke-Build -Task Setup, Build
+      invoke-build -Task Setup, Build, Test -BuildInfo (Get-BuildInfo)
 
 test_script:
-  - ps: Invoke-Build -Task Setup, Test
-  - pwsh: Invoke-Build -Task Setup, Test
+  - ps: Invoke-Build -Task Setup, Test -BuildInfo (Get-BuildInfo)
+  - pwsh: |
+      Import-Module .\build\Indented.Build
+      Invoke-Build -Task Setup, Test -BuildInfo (Get-BuildInfo)

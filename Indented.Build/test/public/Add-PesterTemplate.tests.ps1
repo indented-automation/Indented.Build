@@ -33,7 +33,7 @@ InModuleScope Indented.Build {
                     ModuleName = 'Module'
                     Path       = [PSCustomObject]@{
                         Source = [PSCustomObject]@{
-                            Module = (Get-Item 'TestDrive:\Module\Module').FullName
+                            Module = Get-Item (Get-Item 'TestDrive:\Module\Module').FullName
                         }
                     }
                     PSTypeName = 'Indented.BuildInfo'

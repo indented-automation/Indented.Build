@@ -133,7 +133,9 @@ function Export-BuildScript {
     $tasks | ForEach-Object {
         $null = $script.AppendFormat('task {0}', $_.Name)
         if ($_.If -and $_.If.ToString().Trim() -ne '$true') {
-            $null = $script.AppendFormat(' -If ({0})', $_.If.ToString().Trim())
+            $null = $script.AppendLine(' -If (').
+                            AppendLine($_.If.ToString().Trim()).
+                            Append(')')
         }
         $null = $script.AppendLine(' {').
                         AppendLine($_.Definition.ToString().Trim("`r`n")).

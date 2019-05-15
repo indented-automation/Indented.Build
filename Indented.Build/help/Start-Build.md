@@ -13,8 +13,7 @@ Start a build.
 ## SYNTAX
 
 ```
-Start-Build [[-BuildType] <String[]>] [[-ReleaseType] <String>] [[-BuildInfo] <PSObject[]>]
- [[-ScriptName] <String>] [<CommonParameters>]
+Start-Build [[-BuildType] <String[]>] [[-BuildInfo] <PSObject[]>] [[-ScriptName] <String>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -50,21 +49,6 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -ReleaseType
-The release type to create.
-
-```yaml
-Type: String
-Parameter Sets: (All)
-Aliases:
-
-Required: False
-Position: 2
-Default value: Build
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
 ### -BuildInfo
 {{ Fill BuildInfo Description }}
 
@@ -74,7 +58,7 @@ Parameter Sets: (All)
 Aliases:
 
 Required: False
-Position: 3
+Position: 2
 Default value: (Get-BuildInfo)
 Accept pipeline input: True (ByValue)
 Accept wildcard characters: False
@@ -89,7 +73,7 @@ Parameter Sets: (All)
 Aliases:
 
 Required: False
-Position: 4
+Position: 3
 Default value: .build.ps1
 Accept pipeline input: False
 Accept wildcard characters: False
