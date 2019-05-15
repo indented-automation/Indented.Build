@@ -1,6 +1,7 @@
 ---
 external help file: Indented.Build-help.xml
-online version: 
+Module Name: Indented.Build
+online version:
 schema: 2.0.0
 ---
 
@@ -12,7 +13,7 @@ Enable a metadata property which has been commented out.
 ## SYNTAX
 
 ```
-Enable-Metadata [[-Path] <String>] [-PropertyName <String>]
+Enable-Metadata [[-Path] <String>] [-PropertyName <String>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -24,7 +25,7 @@ If the property does not exist, or exists more than once within the specified fi
 
 ## EXAMPLES
 
-### -------------------------- EXAMPLE 1 --------------------------
+### EXAMPLE 1
 ```
 Enable-Metadata .\module.psd1 -PropertyName RequiredAssemblies
 ```
@@ -54,7 +55,7 @@ The property to enable.
 ```yaml
 Type: String
 Parameter Sets: (All)
-Aliases: 
+Aliases:
 
 Required: False
 Position: Named
@@ -63,17 +64,15 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### CommonParameters
+This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
+
 ## INPUTS
 
 ### System.String
-
 ## OUTPUTS
 
 ### System.Boolean
-
 ## NOTES
-Change log:
-    04/08/2016 - Chris Dent - Created.
 
 ## RELATED LINKS
-

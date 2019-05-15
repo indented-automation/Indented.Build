@@ -1,87 +1,56 @@
+#region:TestFileHeader
+param (
+    [Boolean]$UseExisting
+)
+
+if (-not $UseExisting) {
+    $moduleBase = $psscriptroot.Substring(0, $psscriptroot.IndexOf("\test"))
+    $stubBase = Resolve-Path (Join-Path $moduleBase "test*\stub\*")
+    if ($null -ne $stubBase) {
+        $stubBase | Import-Module -Force
+    }
+
+    Import-Module $moduleBase -Force
+}
+#endregion
+
 InModuleScope Indented.Build {
     Describe Get-BuildInfo {
         BeforeAll {
-            Mock GetBranchName { 'master' }
-            Mock GetBuildSystem { 'Unknown' }
-            Mock GetLastCommitMessage { 'Commit message' }
-            Mock GetProjectRoot { Get-Item 'TestDrive:\ModuleName' }
-            Mock GetSourcePath { Get-Item 'TestDrive:\ModuleName\ModuleName' }
-            Mock GetVersion { [Version]'1.0.0' }
-            Mock UpdateVersion { [Version]'1.0.0' }
+            Mock GetBuildSystem { 'Desktop' }
 
-            New-Item 'TestDrive:\ModuleName\ModuleName\ModuleName.psd1' -ItemType File -Force
-            New-Item 'TestDrive:\ProjectName\ModuleName\ModuleName.psd1' -ItemType File -Force
+            New-Item 'TestDrive:\ProjectName\ModuleName' -ItemType Directory
+            New-ModuleManifest 'TestDrive:\ProjectName\ModuleName\ModuleName.psd1' -RootModule ModuleName.psm1 -ModuleVersion 1.0.0
+
+            $defaultParams = @{
+                ProjectRoot = 'TestDrive:\ProjectName'
+            }
         }
 
         Context 'Normal operation' {
-            BeforeAll {
-                $buildInfo = Get-BuildInfo
+            It 'Returns an object of type Indented.BuildInfo' {
+                $buildInfo = Get-BuildInfo @defaultParams
+
+                $buildInfo | Should -Not -BeNullOrEmpty
+                $buildInfo.PSTypeNames | Should -Contain 'Indented.BuildInfo'
             }
 
-            It 'Object: TypeName: Is BuildInfo' {
-                $buildInfo.PSObject.TypeNames -contains 'BuildInfo' | Should -Be $true
-            }
+            It 'Uses GetBuildSystem to discover the CI platform' {
+                $buildInfo = Get-BuildInfo @defaultParams
 
-            It 'Command: Calls GetBuildSystem' {
-                Assert-MockCalled GetBuildSystem
-            }
+                $buildInfo.BuildSystem | Should -Be 'Desktop'
 
-            It 'Command: Calls GetBranchName' {
-                Assert-MockCalled GetBranchName
-            }
-
-            It 'Command: Calls GetLastCommitMessage' {
-                Assert-MockCalled GetLastCommitMessage
-            }
-
-            It 'Command: Calls GetProjectRoot' {
-                Assert-MockCalled GetProjectRoot
-            }
-
-            It 'Command: Calls GetSourcePath' {
-                Assert-MockCalled GetSourcePath
-            }
-
-            It 'Command: Calls GetVersion' {
-                Assert-MockCalled GetVersion
-            }
-
-            It 'Command: Calls UpdateVersion' {
-                Assert-MockCalled UpdateVersion
+                Assert-MockCalled GetBuildSystem -Scope It
             }
         }
 
-        Context 'Paths affected by project root' {
-            It 'Path.Package: Is "ProjectRoot\Version": When the ProjectRoot name and the ModuleName are equal' {
-                Mock GetProjectRoot { 
-                    Get-Item 'TestDrive:\ModuleName'
-                }
- 
-                (Get-BuildInfo).Path.Package | Should -BeLike '*\ModuleName\1.0.0'
+        Context 'Paths generation' {
+            It 'Path.Build.Module usese the convention "ProjectRoot\build\ModuleName\Version"' {
+                (Get-BuildInfo @defaultParams).Path.Build.Module | Should -BeLike '*\ProjectName\build\ModuleName\1.0.0'
             }
 
-            It 'Path.Package: Is "ProjectRoot\build\ModuleName\Version": When the ProjectRoot name and the ModuleName differ' {
-                Mock GetProjectRoot { 
-                    Get-Item 'TestDrive:\ProjectName'
-                }
-
-                (Get-BuildInfo).Path.Package | Should -BeLike '*\ProjectName\build\ModuleName\1.0.0'
-            }
-
-            It 'Path.Output: Is "ProjectRoot\Output": When the ProjectRoot name and the ModuleName are equal' {
-                Mock GetProjectRoot { 
-                    Get-Item 'TestDrive:\ModuleName'
-                }
-
-                (Get-BuildInfo).Path.Output | Should -BeLike '*\ModuleName\output'
-            }
-
-            It 'Path.Output: Is "ProjectRoot\build\output\ModuleName": When the ProjectRoot name and the ModuleName differ' {
-                Mock GetProjectRoot { 
-                    Get-Item 'TestDrive:\ProjectName'
-                }
-
-                (Get-BuildInfo).Path.Output | Should -BeLike '*\ProjectName\build\output\ModuleName'
+            It 'Path.Build.Output usese the convention "ProjectRoot\build\output": ' {
+                (Get-BuildInfo @defaultParams).Path.Build.Output | Should -BeLike '*\ProjectName\build\output\ModuleName'
             }
         }
     }

@@ -1,3 +1,19 @@
+#region:TestFileHeader
+param (
+    [Boolean]$UseExisting
+)
+
+if (-not $UseExisting) {
+    $moduleBase = $psscriptroot.Substring(0, $psscriptroot.IndexOf("\test"))
+    $stubBase = Resolve-Path (Join-Path $moduleBase "test*\stub\*")
+    if ($null -ne $stubBase) {
+        $stubBase | Import-Module -Force
+    }
+
+    Import-Module $moduleBase -Force
+}
+#endregion
+
 InModuleScope Indented.Build {
     Describe Get-BuildTask {
         BeforeAll {
@@ -24,7 +40,8 @@ InModuleScope Indented.Build {
                 Path = [PSCustomObject]@{
                     Source = (Get-Item 'TestDrive:\')
                 }
-            } | Add-Member -TypeName 'BuildInfo' -PassThru
+                PSTypeName = 'Indented.BuildInfo'
+            }
         }
 
         BeforeEach {
@@ -40,8 +57,8 @@ InModuleScope Indented.Build {
         It 'BuildTask: Lists all tasks: When ListAvailable is set' {
             $buildTasks = Get-BuildTask -ListAvailable
             @($buildTasks).Count | Should -Be 2
-            $buildTasks.Name -contains 'Compatible' | Should -Be $true
-            $buildTasks.Name -contains 'NotCompatible' | Should -Be $true
+            $buildTasks.Name -contains 'Compatible' | Should -BeTrue
+            $buildTasks.Name -contains 'NotCompatible' | Should -BeTrue
         }
     }
 }

@@ -39,19 +39,19 @@ InModuleScope Indented.Build {
             }
         }
 
-        It 'Output: Default returns "Unknown"' {
-            GetBuildSystem | Should -Be 'Unknown'
+        It 'Returns "Desktop" by default' {
+            GetBuildSystem | Should -Be 'Desktop'
         }
 
-        It 'Output: Returns AppVeyor: When %APPVEYOR% is true' {
+        It 'When %APPVEYOR% is set, returns AppVeyor' {
             $env:APPVEYOR = $true
 
             GetBuildSystem | Should -Be 'AppVeyor'
         }
 
-        It 'Output: Returns Jenkins: When %JENKINS_URL% is set' {
+        It 'When %JENKINS_URL% is set, returns Jenkins' {
             $env:JENKINS_URL = 'http://jenkins'
-            
+
             GetBuildSystem | Should -Be 'Jenkins'
         }
     }

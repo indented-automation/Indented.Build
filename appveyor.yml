@@ -1,10 +1,10 @@
-os: WMF 5
+image: Visual Studio 2017
 
-version: 2.16.{build}
+version: 3.0.1.{build}
 
-environment:
-  NuGetApiKey:
-    secure: kp9PPkiJ/iiPfX0b1m/NYh88GLaok3NlJc1XAr6rWH+umpCiZVwvsK9CVfMNYElL
+branches:
+  only:
+    - master
 
 skip_commits:
   message: /updated? readme.*s/
@@ -15,9 +15,18 @@ install:
   - ps: |
       $null = Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
       Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-      Install-Module Configuration, Pester, InvokeBuild
-      Set-Location $env:APPVEYOR_BUILD_FOLDER\$env:APPVEYOR_PROJECT_NAME
-      Invoke-Build -Task GetBuildInfo
+      Install-Module Configuration, Pester, InvokeBuild -Force
+      Set-Location $env:APPVEYOR_BUILD_FOLDER
+  - pwsh: Set-Location $env:APPVEYOR_BUILD_FOLDER
 
 build_script:
-  - ps: Invoke-Build
+  - ps: |
+      Invoke-Build .\.build.bootstrap.ps1 -Task Build
+      invoke-build -Task Setup, Build, Test -BuildInfo (Get-BuildInfo)
+
+test_script:
+  - ps: Invoke-Build -Task Setup, Test -BuildInfo (Get-BuildInfo)
+  - pwsh: |
+      Install-Module Configuration, Pester, InvokeBuild -Force
+      Import-Module .\build\Indented.Build
+      Invoke-Build -Task Setup, Test -BuildInfo (Get-BuildInfo)

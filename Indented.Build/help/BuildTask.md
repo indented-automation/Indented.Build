@@ -1,6 +1,7 @@
 ---
 external help file: Indented.Build-help.xml
-online version: 
+Module Name: Indented.Build
+online version:
 schema: 2.0.0
 ---
 
@@ -13,7 +14,7 @@ Create a build task object.
 
 ```
 BuildTask [-Name] <String> [-Stage] <String> [[-Order] <Int32>] [[-If] <ScriptBlock>]
- [-Definition] <ScriptBlock>
+ [-Definition] <ScriptBlock> [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -22,7 +23,7 @@ A build task is a predefined task used to build well-structured PowerShell proje
 ## EXAMPLES
 
 ### Example 1
-```
+```powershell
 PS C:\> {{ Add example code here }}
 ```
 
@@ -36,7 +37,7 @@ The name of the task.
 ```yaml
 Type: String
 Parameter Sets: (All)
-Aliases: 
+Aliases:
 
 Required: True
 Position: 1
@@ -51,7 +52,7 @@ The stage during which the task will be invoked.
 ```yaml
 Type: String
 Parameter Sets: (All)
-Aliases: 
+Aliases:
 
 Required: True
 Position: 2
@@ -66,7 +67,7 @@ Where the task should appear in the build order respective to the stage.
 ```yaml
 Type: Int32
 Parameter Sets: (All)
-Aliases: 
+Aliases:
 
 Required: False
 Position: 3
@@ -81,7 +82,7 @@ The task will only be invoked if the filter condition is true.
 ```yaml
 Type: ScriptBlock
 Parameter Sets: (All)
-Aliases: 
+Aliases:
 
 Required: False
 Position: 4
@@ -96,7 +97,7 @@ The task implementation.
 ```yaml
 Type: ScriptBlock
 Parameter Sets: (All)
-Aliases: 
+Aliases:
 
 Required: True
 Position: 5
@@ -105,13 +106,14 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### CommonParameters
+This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
+
 ## INPUTS
 
 ## OUTPUTS
 
-### BuildTask
-
+### Indented.BuildTask
 ## NOTES
 
 ## RELATED LINKS
-

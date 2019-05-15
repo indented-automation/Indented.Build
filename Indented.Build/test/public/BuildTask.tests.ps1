@@ -1,17 +1,33 @@
+#region:TestFileHeader
+param (
+    [Boolean]$UseExisting
+)
+
+if (-not $UseExisting) {
+    $moduleBase = $psscriptroot.Substring(0, $psscriptroot.IndexOf("\test"))
+    $stubBase = Resolve-Path (Join-Path $moduleBase "test*\stub\*")
+    if ($null -ne $stubBase) {
+        $stubBase | Import-Module -Force
+    }
+
+    Import-Module $moduleBase -Force
+}
+#endregion
+
 InModuleScope Indented.Build {
     Describe BuildTask {
-        It 'Object: TypeName: Is BuildTask' {
+        It 'Returns tasks with the PSTypeName set to Indented.BuildTask' {
             $buildTask = BuildTask -Name 'name' -Stage 'Build' -Definition { }
-            $buildTask.PSObject.TypeNames -contains 'BuildTask' | Should -Be $true
+            $buildTask.PSTypeNames | Should -Contain 'Indented.BuildTask'
         }
 
-        It 'Object: Has default values: When using mandatory parameters only' {
+        It 'When using mandatory parameters only, sets default values' {
             $buildTask = BuildTask -Name 'name' -Stage 'Build' -Definition { }
             $buildTask.Order | Should -Be 1024
             & $buildTask.If | Should -Be $true
         }
 
-        It 'Object: Accepts values from parameters: When parameter arguments are given' {
+        It 'When order is defined, passes the value to the Order property' {
             $buildTask = BuildTask -Name 'name' -Stage 'Build' -Order 0 -If { $false } -Definition { }
             $buildTask.Order | Should -Be 0
             & $buildTask.If | Should -Be $false

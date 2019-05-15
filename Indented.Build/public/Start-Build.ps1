@@ -1,4 +1,4 @@
-filter Start-Build {
+function Start-Build {
     <#
     .SYNOPSIS
         Start a build.
@@ -11,31 +11,21 @@ filter Start-Build {
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingCmdletAliases', '')]
     [CmdletBinding()]
-    [OutputType([Void])]
     param (
         # The task categories to execute.
-        [String[]]$BuildType = @('Setup', 'Build', 'Test'),
-
-        # The release type to create.
-        [ValidateSet('Build', 'Minor', 'Major', 'None')]
-        [String]$ReleaseType = 'Build',
+        [String[]]$BuildType = ('Setup', 'Build', 'Test'),
 
         [Parameter(ValueFromPipeline)]
-        [PSTypeName('BuildInfo')]
-        [PSObject[]]$BuildInfo = (Get-BuildInfo -BuildType $BuildType -ReleaseType $ReleaseType),
+        [PSTypeName('Indented.BuildInfo')]
+        [PSObject[]]$BuildInfo = (Get-BuildInfo),
 
         [String]$ScriptName = '.build.ps1'
     )
 
     foreach ($instance in $BuildInfo) {
         try {
-                # If a build script exists in the project root, use it.
-            if (Test-Path (Join-Path $instance.Path.ProjectRoot $ScriptName)) {
-                $buildScript = Join-Path $instance.Path.ProjectRoot $ScriptName
-            } else {
-                # Otherwise assume the project contains more than one module and create a module specific script.
-                $buildScript = Join-Path $instance.Path.Source $ScriptName
-            }
+            # If a build script exists in the project root, use it.
+            $buildScript = Join-Path $instance.Path.ProjectRoot $ScriptName
 
             # Remove the script if it is created by this process. Export-BuildScript can be used to create a persistent script.
             $shouldClean = $false

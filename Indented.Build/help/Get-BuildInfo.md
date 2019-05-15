@@ -1,6 +1,7 @@
 ---
 external help file: Indented.Build-help.xml
-online version: 
+Module Name: Indented.Build
+online version:
 schema: 2.0.0
 ---
 
@@ -12,7 +13,7 @@ Get properties required to build the project.
 ## SYNTAX
 
 ```
-Get-BuildInfo [[-BuildType] <String[]>] [[-ReleaseType] <String>] [[-Path] <String>]
+Get-BuildInfo [[-ModuleName] <String>] [[-ProjectRoot] <String>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -20,7 +21,7 @@ Get the properties required to build the project, or elements of the project.
 
 ## EXAMPLES
 
-### -------------------------- EXAMPLE 1 --------------------------
+### EXAMPLE 1
 ```
 Get-BuildInfo
 ```
@@ -29,62 +30,44 @@ Get build information for the current or any child directories.
 
 ## PARAMETERS
 
-### -BuildType
-The tasks to execute, passed to Invoke-Build.
-BuildType is expected to be a broad description of the build, encompassing a set of tasks.
-
-```yaml
-Type: String[]
-Parameter Sets: (All)
-Aliases: 
-
-Required: False
-Position: 1
-Default value: @('Setup', 'Build', 'Test')
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
-### -ReleaseType
-The release type.
-By default the release type is Build and the build version will increment.
-
-If the last commit message includes the phrase "major release" the release type will be reset to Major; If the last commit meessage includes "release" the releasetype will be reset to Minor.
+### -ModuleName
+{{ Fill ModuleName Description }}
 
 ```yaml
 Type: String
 Parameter Sets: (All)
-Aliases: 
+Aliases:
 
 Required: False
-Position: 2
-Default value: Build
+Position: 1
+Default value: *
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Path
+### -ProjectRoot
 Generate build information for the specified path.
 
 ```yaml
 Type: String
 Parameter Sets: (All)
-Aliases: 
+Aliases:
 
 Required: False
-Position: 3
+Position: 2
 Default value: $pwd.Path
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### CommonParameters
+This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
+
 ## INPUTS
 
 ## OUTPUTS
 
-### BuildInfo
-
+### Indented.BuildInfo
 ## NOTES
 
 ## RELATED LINKS
-

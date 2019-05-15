@@ -1,6 +1,7 @@
 ---
 external help file: Indented.Build-help.xml
-online version: 
+Module Name: Indented.Build
+online version:
 schema: 2.0.0
 ---
 
@@ -13,12 +14,12 @@ Get build tasks.
 
 ### ForBuild (Default)
 ```
-Get-BuildTask [-BuildInfo] <PSObject> [-Name <String>]
+Get-BuildTask [-BuildInfo] <PSObject> [-Name <String>] [<CommonParameters>]
 ```
 
 ### List
 ```
-Get-BuildTask [-Name <String>] [-ListAvailable]
+Get-BuildTask [-Name <String>] [-ListAvailable] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -29,7 +30,7 @@ If the ListAvailable parameter is supplied, all available tasks will be returned
 ## EXAMPLES
 
 ### Example 1
-```
+```powershell
 PS C:\> {{ Add example code here }}
 ```
 
@@ -43,7 +44,7 @@ A build information object used to determine which tasks will apply to the curre
 ```yaml
 Type: PSObject
 Parameter Sets: ForBuild
-Aliases: 
+Aliases:
 
 Required: True
 Position: 2
@@ -58,7 +59,7 @@ Filter tasks by task name.
 ```yaml
 Type: String
 Parameter Sets: (All)
-Aliases: 
+Aliases:
 
 Required: False
 Position: Named
@@ -73,7 +74,7 @@ List all available tasks, irrespective of conditions applied to the task.
 ```yaml
 Type: SwitchParameter
 Parameter Sets: List
-Aliases: 
+Aliases:
 
 Required: True
 Position: Named
@@ -82,13 +83,14 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### CommonParameters
+This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
+
 ## INPUTS
 
 ## OUTPUTS
 
 ### BuildTask
-
 ## NOTES
 
 ## RELATED LINKS
-

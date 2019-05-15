@@ -4,7 +4,7 @@ function Get-BuildTask {
         Get build tasks.
     .DESCRIPTION
         Get the build tasks deemed to be applicable to this build.
-        
+
         If the ListAvailable parameter is supplied, all available tasks will be returned.
     #>
 
@@ -13,14 +13,14 @@ function Get-BuildTask {
     param (
         # A build information object used to determine which tasks will apply to the current build.
         [Parameter(Mandatory, Position = 1, ValueFromPipeline, ParameterSetName = 'ForBuild')]
-        [PSTypeName('BuildInfo')]
+        [PSTypeName('Indented.BuildInfo')]
         [PSObject]$BuildInfo,
 
         # Filter tasks by task name.
         [String]$Name = '*',
 
         # List all available tasks, irrespective of conditions applied to the task.
-        [Parameter(Mandatory, ParameterSetName = 'List')]        
+        [Parameter(Mandatory, ParameterSetName = 'List')]
         [Switch]$ListAvailable
     )
 
@@ -28,7 +28,7 @@ function Get-BuildTask {
         if (-not $Name.EndsWith('.ps1') -and -not $Name.EndsWith('*')) {
             $Name += '.ps1'
         }
-        $path = Join-Path $psscriptroot 'task'
+        $path = Join-Path $myinvocation.MyCommand.Module.ModuleBase 'task'
 
         if (-not $Script:buildTaskCache) {
             $Script:buildTaskCache = @{}
@@ -41,7 +41,7 @@ function Get-BuildTask {
 
     process {
         if ($buildInfo) {
-            Push-Location $buildInfo.Path.Source
+            Push-Location $buildInfo.Path.Source.Module
         }
 
         try {

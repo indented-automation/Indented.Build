@@ -1,10 +1,12 @@
 BuildTask TestModuleImport -Stage Test -Order 0 -Definition {
-    Start-Job -ArgumentList $buildInfo -ScriptBlock {
+    # Test that the module imports.
+
+    $script = {
         param (
             $buildInfo
         )
 
-        $path = Join-Path $buildInfo.Path.Source 'test*'
+        $path = Join-Path $buildInfo.Path.Source.Module 'test*'
 
         if (Test-Path (Join-Path $path 'stub')) {
             Get-ChildItem (Join-Path $path 'stub') -Filter *.psm1 -Recurse -Depth 1 | ForEach-Object {
@@ -12,6 +14,12 @@ BuildTask TestModuleImport -Stage Test -Order 0 -Definition {
             }
         }
 
-        Import-Module $buildInfo.Path.Manifest.FullName -ErrorAction Stop
-    } | Receive-Job -Wait -ErrorAction Stop
+        Import-Module $buildInfo.Path.Build.Manifest.FullName -ErrorAction Stop
+    }
+
+    if ($buildInfo.BuildSystem -eq 'Desktop') {
+        Start-Job -ArgumentList $buildInfo -ScriptBlock $script | Receive-Job -Wait -ErrorAction Stop
+    } else {
+        & $script -BuildInfo $buildInfo
+    }
 }

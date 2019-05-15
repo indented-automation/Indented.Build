@@ -1,6 +1,7 @@
 ---
 external help file: Indented.Build-help.xml
-online version: 
+Module Name: Indented.Build
+online version:
 schema: 2.0.0
 ---
 
@@ -12,8 +13,7 @@ Start a build.
 ## SYNTAX
 
 ```
-Start-Build [[-BuildType] <String[]>] [[-ReleaseType] <String>] [[-BuildInfo] <PSObject[]>]
- [[-ScriptName] <String>]
+Start-Build [[-BuildType] <String[]>] [[-BuildInfo] <PSObject[]>] [[-ScriptName] <String>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -26,7 +26,7 @@ If the build script exists this command is superfluous.
 ## EXAMPLES
 
 ### Example 1
-```
+```powershell
 PS C:\> {{ Add example code here }}
 ```
 
@@ -40,67 +40,52 @@ The task categories to execute.
 ```yaml
 Type: String[]
 Parameter Sets: (All)
-Aliases: 
+Aliases:
 
 Required: False
 Position: 1
-Default value: @('Setup', 'Build', 'Test')
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
-### -ReleaseType
-The release type to create.
-
-```yaml
-Type: String
-Parameter Sets: (All)
-Aliases: 
-
-Required: False
-Position: 2
-Default value: Build
+Default value: ('Setup', 'Build', 'Test')
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
 ### -BuildInfo
-{{Fill BuildInfo Description}}
+{{ Fill BuildInfo Description }}
 
 ```yaml
 Type: PSObject[]
 Parameter Sets: (All)
-Aliases: 
+Aliases:
 
 Required: False
-Position: 3
-Default value: (Get-BuildInfo -BuildType $BuildType -ReleaseType $ReleaseType)
+Position: 2
+Default value: (Get-BuildInfo)
 Accept pipeline input: True (ByValue)
 Accept wildcard characters: False
 ```
 
 ### -ScriptName
-{{Fill ScriptName Description}}
+{{ Fill ScriptName Description }}
 
 ```yaml
 Type: String
 Parameter Sets: (All)
-Aliases: 
+Aliases:
 
 Required: False
-Position: 4
+Position: 3
 Default value: .build.ps1
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### CommonParameters
+This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
+
 ## INPUTS
 
 ## OUTPUTS
 
-### System.Void
-
 ## NOTES
 
 ## RELATED LINKS
-

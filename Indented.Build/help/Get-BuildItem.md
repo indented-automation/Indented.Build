@@ -1,6 +1,7 @@
 ---
 external help file: Indented.Build-help.xml
-online version: 
+Module Name: Indented.Build
+online version:
 schema: 2.0.0
 ---
 
@@ -12,7 +13,7 @@ Get source items.
 ## SYNTAX
 
 ```
-Get-BuildItem [-Type] <String> [-BuildInfo] <PSObject> [-ExcludeClass]
+Get-BuildItem [-Type] <String> [-BuildInfo] <PSObject> [-ExcludeClass] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -23,7 +24,7 @@ This function centralises the logic required to enumerate files and folders with
 ## EXAMPLES
 
 ### Example 1
-```
+```powershell
 PS C:\> {{ Add example code here }}
 ```
 
@@ -41,7 +42,7 @@ Captures help content in en-US, format files, configuration files, etc.
 ```yaml
 Type: String
 Parameter Sets: (All)
-Aliases: 
+Aliases:
 
 Required: True
 Position: 1
@@ -56,7 +57,7 @@ BuildInfo is used to determine the source path.
 ```yaml
 Type: PSObject
 Parameter Sets: (All)
-Aliases: 
+Aliases:
 
 Required: True
 Position: 2
@@ -71,7 +72,7 @@ Exclude script files containing PowerShell classes.
 ```yaml
 Type: SwitchParameter
 Parameter Sets: (All)
-Aliases: 
+Aliases:
 
 Required: False
 Position: Named
@@ -80,15 +81,15 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### CommonParameters
+This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
+
 ## INPUTS
 
 ## OUTPUTS
 
 ### System.IO.FileInfo
-
 ### System.IO.DirectoryInfo
-
 ## NOTES
 
 ## RELATED LINKS
-

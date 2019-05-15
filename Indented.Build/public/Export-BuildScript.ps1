@@ -1,5 +1,3 @@
-using namespace System.Text
-
 function Export-BuildScript {
     <#
     .SYNOPSIS
@@ -15,23 +13,25 @@ function Export-BuildScript {
     param (
         # The build information object is used to determine which tasks are applicable.
         [Parameter(ValueFromPipeline)]
-        [PSTypeName('BuildInfo')]
+        [PSTypeName('Indented.BuildInfo')]
         [PSObject]$BuildInfo = (Get-BuildInfo),
 
         # By default the build system is automatically discovered. The BuildSystem parameter overrides any automatically discovered value. Tasks associated with the build system are added to the generated script.
         [String]$BuildSystem,
 
-        # If specified, the build script will be written to the the specified path. By default the build script is written (as a string) to the console.
-        [String]$Path
+        # The build script will be written to the the specified path.
+        [String]$Path = '.build.ps1'
     )
 
     if ($BuildSystem) {
         $BuildInfo.BuildSystem = $BuildSystem
     }
 
-    $script = [StringBuilder]::new()
+    $script = [System.Text.StringBuilder]::new()
     $null = $script.AppendLine('param (').
-                    AppendLine('    [PSTypeName("BuildInfo")]').
+                    AppendLine('    [String]$ModuleName,').
+                    AppendLine().
+                    AppendLine('    [PSTypeName("Indented.BuildInfo")]').
                     AppendLine('    [ValidateCount(1, 1)]').
                     AppendLine('    [PSObject[]]$BuildInfo').
                     AppendLine(')').
@@ -48,13 +48,19 @@ function Export-BuildScript {
     }, Order, Name
 
     # Build the wrapper tasks and insert the block at the top of the script
-    $taskSets = [StringBuilder]::new()
+    $taskSets = [System.Text.StringBuilder]::new()
+    $taskStages = ($tasks | Group-Object Stage -NoElement).Name
+
     # Add a default task set
-    $null = $taskSets.AppendLine('task default Setup,').
-                      AppendLine('             Build,').
-                      AppendLine('             Test,').
-                      AppendLine('             Pack').
-                      AppendLine()
+    $null = $taskSets.AppendFormat('task default {0},', $taskStages[0]).AppendLine()
+    for ($i = 1; $i -lt $taskStages.Count; $i++) {
+        $null = $taskSets.AppendFormat(
+            '             {0}{1}',
+            $taskStages[$i],
+            @(',', '')[$i -eq $taskStages.Count - 1]
+        ).AppendLine()
+    }
+    $null = $taskSets.AppendLine()
 
     $tasks | Group-Object Stage | ForEach-Object {
         $indentLength = 'task '.Length + $_.Name.Length
@@ -74,7 +80,7 @@ function Export-BuildScript {
         {
             param ( $ast )
 
-            $ast -is [Management.Automation.Language.CommandAst]
+            $ast -is [System.Management.Automation.Language.CommandAst]
         },
         $true
     ) | ForEach-Object GetCommandName |
@@ -90,8 +96,8 @@ function Export-BuildScript {
                                 AppendLine()
             }
         }
-    
-    'Enable-Metadata', 'Get-BuildInfo', 'Get-BuildItem' | ForEach-Object { 
+
+    'Convert-CodeCoverage', 'ConvertTo-ChocoPackage', 'Enable-Metadata', 'Get-BuildInfo', 'Get-BuildItem', 'Get-FunctionInfo', 'Get-LevenshteinDistance' | ForEach-Object {
         $null = $script.AppendFormat('function {0} {{', $_).
                         Append((Get-Command $_).Definition).
                         AppendLine('}').
@@ -127,7 +133,9 @@ function Export-BuildScript {
     $tasks | ForEach-Object {
         $null = $script.AppendFormat('task {0}', $_.Name)
         if ($_.If -and $_.If.ToString().Trim() -ne '$true') {
-            $null = $script.AppendFormat(' -If ({0})', $_.If.ToString().Trim())
+            $null = $script.AppendLine(' -If (').
+                            AppendLine($_.If.ToString().Trim()).
+                            Append(')')
         }
         $null = $script.AppendLine(' {').
                         AppendLine($_.Definition.ToString().Trim("`r`n")).
@@ -135,9 +143,5 @@ function Export-BuildScript {
                         AppendLine()
     }
 
-    if ($Path) {
-        $script.ToString() | Set-Content $Path
-    } else {
-        $script.ToString()
-    }
+    $script.ToString() | Set-Content $Path
 }

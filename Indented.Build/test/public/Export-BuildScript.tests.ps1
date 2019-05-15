@@ -1,3 +1,19 @@
+#region:TestFileHeader
+param (
+    [Boolean]$UseExisting
+)
+
+if (-not $UseExisting) {
+    $moduleBase = $psscriptroot.Substring(0, $psscriptroot.IndexOf("\test"))
+    $stubBase = Resolve-Path (Join-Path $moduleBase "test*\stub\*")
+    if ($null -ne $stubBase) {
+        $stubBase | Import-Module -Force
+    }
+
+    Import-Module $moduleBase -Force
+}
+#endregion
+
 InModuleScope Indented.Build {
     Describe Export-BuildScript {
         BeforeAll {
@@ -13,7 +29,7 @@ InModuleScope Indented.Build {
                     Order      = 1
                     Stage      = 'Test'
                     Definition = ''
-                }                
+                }
                 [PSCustomObject]@{
                     Name       = 'Compile'
                     Order      = 2
@@ -26,20 +42,22 @@ InModuleScope Indented.Build {
                     Order      = 1
                     Stage      = 'Build'
                     Definition = ''
-                }                
+                }
             }
 
-            $buildInfo = [PSCustomObject]@{ } | Add-Member -TypeName 'BuildInfo' -PassThru
+            $buildInfo = [PSCustomObject]@{
+                PSTypeName = 'Indented.BuildInfo'
+            }
         }
 
         Context 'Command insertion' {
             BeforeAll {
-                $script = Export-BuildScript -BuildInfo $buildInfo
+                Export-BuildScript -BuildInfo $buildInfo -Path 'TestDrive:\.build.ps1'
+                $script = Get-Content -Path 'TestDrive:\.build.ps1' -Raw
             }
 
             It 'Inserts commands required by Get-BuildInfo' {
                 $script | Should -Match 'function GetBuildSystem'
-                $script | Should -Match 'function GetProjectRoot'
             }
 
             It 'Inserts Enabled-Metadata' {
@@ -58,18 +76,16 @@ InModuleScope Indented.Build {
 
         Context 'Task insertion' {
             BeforeAll {
-                $testCases = 'CreatePackage',
-                             'NUnitTest',
-                             'Merge',
-                             'Compile' |
-                    ForEach-Object {
-                        @{ Name = $_ }
-                    }
-
-                $script = Export-BuildScript -BuildInfo $buildInfo
+                Export-BuildScript -BuildInfo $buildInfo -Path 'TestDrive:\.build.ps1'
+                $script = Get-Content -Path 'TestDrive:\.build.ps1' -Raw
             }
 
-            It 'Inserts the task <Name> returned by Get-BuildTask' -TestCases $testCases {
+            It 'Inserts the task <Name> returned by Get-BuildTask' -TestCases @(
+                @{ Name = 'CreatePackage' }
+                @{ Name = 'NUnitTest' }
+                @{ Name = 'Merge' }
+                @{ Name = 'Compile' }
+            ) {
                 param (
                     $Name
                 )
@@ -91,7 +107,8 @@ InModuleScope Indented.Build {
 
         Context 'Summary tasks insertion' {
             BeforeAll {
-                $script = Export-BuildScript -BuildInfo $buildInfo
+                Export-BuildScript -BuildInfo $buildInfo -Path 'TestDrive:\.build.ps1'
+                $script = Get-Content -Path 'TestDrive:\.build.ps1' -Raw
             }
 
             It 'Inserts summary tasks' {
@@ -102,18 +119,6 @@ InModuleScope Indented.Build {
 
             It 'Inserts a default task' {
                 $script | Should -Match 'task default'
-            }
-        }
-
-        Context 'File generation' {
-            BeforeAll {
-                $path = 'TestDrive:\.build.ps1'
-                $script = Export-BuildScript -BuildInfo $buildInfo -Path $path
-            }
-
-            It 'Output: File only' {
-                $script | Should -BeNullOrEmpty
-                $path | Should -Exist
             }
         }
     }

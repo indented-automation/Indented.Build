@@ -1,3 +1,19 @@
+#region:TestFileHeader
+param (
+    [Boolean]$UseExisting
+)
+
+if (-not $UseExisting) {
+    $moduleBase = $psscriptroot.Substring(0, $psscriptroot.IndexOf("\test"))
+    $stubBase = Resolve-Path (Join-Path $moduleBase "test*\stub\*")
+    if ($null -ne $stubBase) {
+        $stubBase | Import-Module -Force
+    }
+
+    Import-Module $moduleBase -Force
+}
+#endregion
+
 InModuleScope Indented.Build {
     Describe Enable-Metadata {
         BeforeAll {
@@ -14,23 +30,30 @@ InModuleScope Indented.Build {
             Mock Set-Content
             Mock Test-Path { $true }
 
-            $path = 'TestDrive:\manifest.psd1'
+            $defaultParams = @{
+                PropertyName    = 'Default'
+                Path            = 'TestDrive:\manifest.psd1'
+                WarningVariable = 'warning'
+                WarningAction   = 'SilentlyContinue'
+            }
         }
 
         Context 'Value exists and is enabled' {
             BeforeAll {
                 Mock Get-Metadata
 
-                $return = Enable-Metadata -PropertyName Enabled -Path $path 
+                $defaultParams.PropertyName = 'Enabled'
             }
 
-            It 'Output: True when the value was present and already enabled' {
-                $return | Should -Be $true
+            It 'When the value is present and enabled, returns true' {
+                Enable-Metadata @defaultParams | Should -BeTrue
             }
 
-            It 'Command: Does not call Get-Content or Set-Content' {
-                Assert-MockCalled Get-Content -Times 0
-                Assert-MockCalled Set-Content -Times 0
+            It 'When the value is present and enabled, does not call Get-Content or Set-Content' {
+                Enable-Metadata @defaultParams
+
+                Assert-MockCalled Get-Content -Times 0 -Scope It
+                Assert-MockCalled Set-Content -Times 0 -Scope It
             }
         }
 
@@ -40,16 +63,18 @@ InModuleScope Indented.Build {
                     throw [System.Management.Automation.ItemNotFoundException]::new('Not found')
                 }
 
-                $return = Enable-Metadata -PropertyName Disabled -Path $path 
+                $defaultParams.PropertyName = 'Disabled'
             }
 
-            It 'Output: True when the value was commented and updated' {
-                $return | Should -Be $true
+            It 'When the value has been uncommented, returns true' {
+                Enable-Metadata @defaultParams | Should -BeTrue
             }
 
-            It 'Command: Calls Get-Content and Set-Content' {
-                Assert-MockCalled Get-Content -Times 1 -Exactly
-                Assert-MockCalled Set-Content -Times 1 -Exactly
+            It 'When the value has been enabled, calls Get-Content and Set-Content' {
+                Enable-Metadata @defaultParams
+
+                Assert-MockCalled Get-Content -Times 1 -Exactly -Scope It
+                Assert-MockCalled Set-Content -Times 1 -Exactly -Scope It
             }
         }
 
@@ -59,22 +84,28 @@ InModuleScope Indented.Build {
                     throw [System.Management.Automation.ItemNotFoundException]::new('Not found')
                 }
 
-                $return = Enable-Metadata -PropertyName Duplicate -Path $path -WarningVariable warning -WarningAction SilentlyContinue
+                $defaultParams.PropertyName = 'Duplicate'
             }
 
-            It 'Output: False when the value is ambiguous' {
-                $return | Should -Be $false
+            It 'When the value is ambiguous, returns false' {
+                Enable-Metadata @defaultParams | Should -BeFalse
             }
 
-            It 'Command: Calls Get-Content' {
-                Assert-MockCalled Get-Content -Times 1 -Exactly
+            It 'When the value is duplicated, calls Get-Content' {
+                Enable-Metadata @defaultParams
+
+                Assert-MockCalled Get-Content -Times 1 -Exactly -Scope It
             }
 
-            It 'Command: Does not call Set-Content' {
-                Assert-MockCalled Set-Content -Times 0
+            It 'When the value is duplicated, does not change content' {
+                Enable-Metadata @defaultParams
+
+                Assert-MockCalled Set-Content -Times 0 -Scope It
             }
 
-            It 'Command: Calls Write-Warning' {
+            It 'When the value is duplicated, writes a warning' {
+                Enable-Metadata @defaultParams
+
                 $warning | Should -BeLike 'Found more than one*'
             }
         }
@@ -85,22 +116,28 @@ InModuleScope Indented.Build {
                     throw [System.Management.Automation.ItemNotFoundException]::new('Not found')
                 }
 
-                $return = Enable-Metadata -PropertyName None -Path $path -WarningVariable warning -WarningAction SilentlyContinue
+                $defaultParams.PropertyName = 'DoesNotExist'
             }
 
-            It 'Output: False when the value does not exist' {
-                $return | Should -Be $false
+            It 'When the value does not exist, returns false' {
+                Enable-Metadata @defaultParams | Should -BeFalse
             }
 
-            It 'Command: Calls Get-Content' {
-                Assert-MockCalled Get-Content -Times 1 -Exactly
+            It 'When the value does not exist, calls Get-Content' {
+                Enable-Metadata @defaultParams
+
+                Assert-MockCalled Get-Content -Times 1 -Exactly -Scope It
             }
 
-            It 'Command: Does not call Set-Content' {
-                Assert-MockCalled Set-Content -Times 0
+            It 'When the value does not exist, does not call Set-Content' {
+                Enable-Metadata @defaultParams
+
+                Assert-MockCalled Set-Content -Times 0 -Scope It
             }
 
-            It 'Command: Calls Write-Warning' {
+            It 'When the value does not exist, writes a warning' {
+                Enable-Metadata @defaultParams
+
                 $warning | Should -BeLike 'Cannot find disabled property*'
             }
         }
