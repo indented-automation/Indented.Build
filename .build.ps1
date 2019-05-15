@@ -1093,7 +1093,7 @@ task TestModuleImport {
             }
         }
 
-        Import-Module $buildInfo.Path.Build.Manifest.FullName -ErrorAction Stop
+        Import-Module $buildInfo.Path.Build.Manifest.FullName -Global -ErrorAction Stop
     }
 
     if ($buildInfo.BuildSystem -eq 'Desktop') {
