@@ -85,8 +85,6 @@ InModuleScope Indented.Build {
                 }
 
                 $defaultParams.PropertyName = 'Duplicate'
-
-                $return = Enable-Metadata -PropertyName Duplicate -Path $path -WarningVariable warning -WarningAction SilentlyContinue
             }
 
             It 'When the value is ambiguous, returns false' {
