@@ -27,6 +27,6 @@ build_script:
 test_script:
   - ps: Invoke-Build -Task Setup, Test -BuildInfo (Get-BuildInfo)
   - pwsh: |
-      Import-Module .\build\Indented.Build
       Install-Module Configuration, Pester, InvokeBuild -Force
+      Import-Module .\build\Indented.Build
       Invoke-Build -Task Setup, Test -BuildInfo (Get-BuildInfo)
