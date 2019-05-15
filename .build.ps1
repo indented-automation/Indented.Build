@@ -1175,7 +1175,6 @@ task AddAppveyorCompilationMessage -If (
 $buildInfo.BuildSystem -eq 'AppVeyor'
 ) {
     # Add a compilation message.
-
     $path = Join-Path $buildInfo.Path.Build.Output 'pester-output.xml'
     if (Test-Path $path) {
         $pester = Import-CliXml $path
@@ -1193,7 +1192,7 @@ $buildInfo.BuildSystem -eq 'AppVeyor'
         Add-AppVeyorCompilationMessage @params
 
         if ($pester.CodeCoverage) {
-            [Double]$codeCoverage = $pester.Config.CodeCoverage.NumberOfCommandsExecuted / $pester.Config.CodeCoverage.NumberOfCommandsAnalyzed
+            [Double]$codeCoverage = $pester.CodeCoverage.NumberOfCommandsExecuted / $pester.CodeCoverage.NumberOfCommandsAnalyzed
 
             $params = @{
                 Message  = '{0:P2} test coverage' -f $codeCoverage
