@@ -1,6 +1,6 @@
 image: Visual Studio 2017
 
-version: 3.0.2.{build}
+version: 3.0.5.{build}
 
 branches:
   only:
@@ -22,7 +22,7 @@ install:
 build_script:
   - ps: |
       Invoke-Build .\.build.bootstrap.ps1 -Task Build
-      invoke-build -Task Setup, Build, Test -BuildInfo (Get-BuildInfo)
+      Invoke-build -Task Setup, Build, Test -BuildInfo (Get-BuildInfo)
 
 test_script:
   - ps: Invoke-Build -Task Setup, Test -BuildInfo (Get-BuildInfo)

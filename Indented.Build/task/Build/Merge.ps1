@@ -21,10 +21,16 @@ BuildTask Merge -Stage Build -Order 4 -Definition {
         $writer.WriteLine('InitializeModule')
     }
 
+    $writer.Flush()
     $writer.Close()
 
-    $rootModule = (Get-Content $buildInfo.Path.Build.RootModule -Raw).Trim()
+    if ((Get-Item $buildInfo.Path.Build.RootModule).Length -eq 0) {
+        Remove-Item $buildInfo.Path.Build.RootModule
+    }
+
     if ($usingStatements.Count -gt 0) {
+        $rootModule = (Get-Content $buildInfo.Path.Build.RootModule -Raw).Trim()
+
         # Add "using" statements to be start of the psm1
         $rootModule = $rootModule.Insert(
             0,
@@ -33,6 +39,7 @@ BuildTask Merge -Stage Build -Order 4 -Definition {
             0,
             (($usingStatements | Sort-Object) -join $buildInfo.Config.EndOfLineChar)
         )
+
+        Set-Content -Path $buildInfo.Path.Build.RootModule -Value $rootModule -NoNewline
     }
-    Set-Content -Path $buildInfo.Path.Build.RootModule -Value $rootModule -NoNewline
 }

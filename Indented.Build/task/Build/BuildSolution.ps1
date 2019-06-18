@@ -6,9 +6,11 @@ BuildTask BuildSolution -Stage Build -Order 3 -If {
     # Executes if a solution file is present in the class directory.
 
     try {
-        Push-Location (Resolve-Path 'class*').Path
+        Push-Location (Resolve-Path (Join-Path $buildInfo.Path.Source.Module 'class*')).Path
 
-        nuget restore
+        if (Test-Path packages.config) {
+            nuget restore
+        }
 
         msbuild /t:Clean /t:Build /p:DebugSymbols=false /p:DebugType=None
         if ($lastexitcode -ne 0) {

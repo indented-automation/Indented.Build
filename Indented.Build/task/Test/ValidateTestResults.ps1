@@ -20,15 +20,17 @@
     }
 
     # Pester code coverage
-    [Double]$codeCoverage = $pester.CodeCoverage.NumberOfCommandsExecuted / $pester.CodeCoverage.NumberOfCommandsAnalyzed
-    $pester.CodeCoverage.MissedCommands | Export-Csv (Join-Path $buildInfo.Path.Build.Output 'CodeCoverage.csv') -NoTypeInformation
+    if ($pester.CodeCoverage) {
+        [Double]$codeCoverage = $pester.CodeCoverage.NumberOfCommandsExecuted / $pester.CodeCoverage.NumberOfCommandsAnalyzed
+        $pester.CodeCoverage.MissedCommands | Export-Csv (Join-Path $buildInfo.Path.Build.Output 'CodeCoverage.csv') -NoTypeInformation
 
-    if ($codecoverage -lt $buildInfo.Config.CodeCoverageThreshold) {
-        'Pester code coverage ({0:P}) is below threshold {1:P}.' -f @(
-            $codeCoverage
-            $buildInfo.Config.CodeCoverageThreshold
-        )
-        $testsFailed = $true
+        if ($codecoverage -lt $buildInfo.Config.CodeCoverageThreshold) {
+            'Pester code coverage ({0:P}) is below threshold {1:P}.' -f @(
+                $codeCoverage
+                $buildInfo.Config.CodeCoverageThreshold
+            )
+            $testsFailed = $true
+        }
     }
 
     # Solution tests

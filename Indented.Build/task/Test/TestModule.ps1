@@ -20,16 +20,18 @@ BuildTask TestModule -Stage Test -Order 2 -Definition {
 
         Import-Module $buildInfo.Path.Build.Manifest -Global -ErrorAction Stop
         $params = @{
-            Script       = @{
+            Script     = @{
                 Path       = $path
                 Parameters = @{
                     UseExisting = $true
                 }
             }
-            CodeCoverage           = $buildInfo.Path.Build.RootModule
-            CodeCoverageOutputFile = Join-Path $buildInfo.Path.Build.Output 'pester-codecoverage.xml'
-            OutputFile             = Join-Path $buildInfo.Path.Build.Output ('{0}-nunit.xml' -f $buildInfo.ModuleName)
-            PassThru               = $true
+            OutputFile = Join-Path $buildInfo.Path.Build.Output ('{0}-nunit.xml' -f $buildInfo.ModuleName)
+            PassThru   = $true
+        }
+        if (Test-Path $buildInfo.Path.Build.RootModule) {
+            $params.Add('CodeCoverage', $buildInfo.Path.Build.RootModule)
+            $params.Add('CodeCoverageOutputFile', (Join-Path $buildInfo.Path.Build.Output 'pester-codecoverage.xml'))
         }
         Invoke-Pester @params
     }
@@ -39,7 +41,9 @@ BuildTask TestModule -Stage Test -Order 2 -Definition {
     } else {
         $pester = & $script -BuildInfo $buildInfo
     }
-    $pester | Convert-CodeCoverage -BuildInfo $buildInfo
+    if ($pester.CodeCoverage) {
+        $pester | Convert-CodeCoverage -BuildInfo $buildInfo
+    }
 
     $path = Join-Path $buildInfo.Path.Build.Output 'pester-output.xml'
     $pester | Export-CliXml $path

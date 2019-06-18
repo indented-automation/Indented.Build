@@ -953,10 +953,16 @@ task Merge {
         $writer.WriteLine('InitializeModule')
     }
 
+    $writer.Flush()
     $writer.Close()
 
-    $rootModule = (Get-Content $buildInfo.Path.Build.RootModule -Raw).Trim()
+    if ((Get-Item $buildInfo.Path.Build.RootModule).Length -eq 0) {
+        Remove-Item $buildInfo.Path.Build.RootModule
+    }
+
     if ($usingStatements.Count -gt 0) {
+        $rootModule = (Get-Content $buildInfo.Path.Build.RootModule -Raw).Trim()
+
         # Add "using" statements to be start of the psm1
         $rootModule = $rootModule.Insert(
             0,
@@ -965,32 +971,111 @@ task Merge {
             0,
             (($usingStatements | Sort-Object) -join $buildInfo.Config.EndOfLineChar)
         )
+
+        Set-Content -Path $buildInfo.Path.Build.RootModule -Value $rootModule -NoNewline
     }
-    Set-Content -Path $buildInfo.Path.Build.RootModule -Value $rootModule -NoNewline
 }
 
 task UpdateMetadata {
     # Update the psd1 document.
 
     try {
-        $path = $buildInfo.Path.Build.Manifest
+        $path = $buildInfo.Path.Build.Manifest.FullName
 
         # Version
         Update-Metadata $path -PropertyName ModuleVersion -Value $buildInfo.Version
 
         # RootModule
-        if (Enable-Metadata $path -PropertyName RootModule) {
-            Update-Metadata $path -PropertyName RootModule -Value $buildInfo.Path.Build.RootModule.Name
+        if (Test-Path $buildInfo.Path.Build.RootModule) {
+            if (Enable-Metadata $path -PropertyName RootModule) {
+                Update-Metadata $path -PropertyName RootModule -Value $buildInfo.Path.Build.RootModule.Name
+            }
+        } else {
+            $rootModule = $buildInfo.Path.Build.RootModule -replace '\.psm1$', '.dll'
+            if (Test-Path $rootModule) {
+                if (Enable-Metadata $path -PropertyName RootModule) {
+                    Update-Metadata $path -PropertyName RootModule -Value (Split-Path $rootModule -Leaf)
+                }
+            }
+        }
+
+        # CmdletsToExport / AliasesToExport
+        foreach ($directory in '', 'lib') {
+            $assemblyPath = [System.IO.Path]::Combine(
+                $buildInfo.Path.Build.Module,
+                $directory,
+                '{0}.dll' -f $buildInfo.ModuleName
+            )
+            if (Test-Path $assemblyPath) {
+                $script = {
+                    param ( $assemblyPath )
+
+                    $moduleInfo = Import-Module $assemblyPath -ErrorAction SilentlyContinue -PassThru
+                    [PSCustomObject]@{
+                        Cmdlet = [String[]]$moduleInfo.ExportedCmdlets.Keys
+                        Alias  = [String[]]$moduleInfo.ExportedAliases.Keys
+                    }
+                }
+                if ($buildInfo.BuildSystem -eq 'Desktop') {
+                    $moduleInfo = Start-Job -ArgumentList $assemblyPath -ScriptBlock $script | Receive-Job -Wait
+                } else {
+                    $moduleInfo = & $script -Path $assemblyPath
+                }
+                if ($moduleInfo.Cmdlet) {
+                    if (Enable-Metadata $path -PropertyName CmdletsToExport) {
+                        Update-Metadata $path -PropertyName CmdletsToExport -Value $moduleInfo.Cmdlet
+                    }
+                } else {
+                    if (Get-Metadata $path -PropertyName CmdletsToExport -ErrorAction SilentlyContinue) {
+                        Update-Metadata $path -PropertyName CmdletsToExport -Value @()
+                    }
+                }
+                if ($moduleInfo.Alias) {
+                    if (Enable-Metadata $path -PropertyName AliasesToExport) {
+                        Update-Metadata $path -PropertyName AliasesToExport -Value $moduleInfo.Alias
+                    }
+                }
+            }
         }
 
         # FunctionsToExport
         $functionsToExport = Get-ChildItem (Join-Path $buildInfo.Path.Source.Module 'pub*') -Filter '*.ps1' -Recurse |
-            Get-FunctionInfo |
-            Select-Object -ExpandProperty Name
+            Get-FunctionInfo
         if ($functionsToExport) {
             if (Enable-Metadata $path -PropertyName FunctionsToExport) {
-                Update-Metadata $path -PropertyName FunctionsToExport -Value $functionsToExport
+                Update-Metadata $path -PropertyName FunctionsToExport -Value $functionsToExport.Name
             }
+        } else {
+            if (Get-Metadata $path -PropertyName FunctionsToExport -ErrorAction SilentlyContinue) {
+                Update-Metadata $path -PropertyName FunctionsToExport -Value @()
+            }
+        }
+
+        # AliasesToExport
+        if ($functionsToExport) {
+            $aliasesToExport = foreach ($function in $functionsToExport) {
+                $function.ScriptBlock.Ast.FindAll( {
+                        param ( $ast )
+
+                        $ast -is [System.Management.AUtomation.Language.AttributeAst] -and
+                        $args[0].TypeName.Name -eq 'Alias'
+                }, $false).PositionalArguments.Value
+            }
+            if ($aliasesToExport) {
+                $aliasesToExport += @(Get-Metadata $path -PropertyName AliasesToExport -ErrorAction SilentlyContinue)
+
+                if (Enable-Metadata $path -PropertyName AliasesToExport) {
+                    Update-Metadata $path -PropertyName AliasesToExport -Value $aliasesToExport
+                }
+            }
+        }
+        if ((Get-Metadata $path -PropertyName AliasesToExport -ErrorAction SilentlyContinue) -eq '*') {
+            Update-Metadata $path -PropertyName AliasesToExport -Value @()
+        }
+
+        # VariablesToExport
+        if (Get-Metadata $path -PropertyName VariablesToExport -ErrorAction SilentlyContinue) {
+            Update-Metadata $path -PropertyName VariablesToExport -Value @()
         }
 
         # DscResourcesToExport
@@ -1017,7 +1102,7 @@ task UpdateMetadata {
         if (Test-Path (Join-Path $buildInfo.Path.Build.Module 'lib\*.dll')) {
             if (Enable-Metadata $path -PropertyName RequiredAssemblies) {
                 Update-Metadata $path -PropertyName RequiredAssemblies -Value (
-                    (Get-Item (Join-Path $buildInfo.Path.Package 'lib\*.dll')).Name | ForEach-Object {
+                    (Get-Item (Join-Path $buildInfo.Path.Build.Module 'lib\*.dll')).Name | ForEach-Object {
                         Join-Path 'lib' $_
                     }
                 )
@@ -1061,7 +1146,7 @@ task UpdateMarkdownHelp {
         }
 
         try {
-            $moduleInfo = Import-Module $buildInfo.Path.Build.Manifest.FullName -ErrorAction Stop -PassThru
+            $moduleInfo = Import-Module $buildInfo.Path.Build.Manifest.FullName -Global -ErrorAction Stop -PassThru
             if ($moduleInfo.ExportedCommands.Count -gt 0) {
                 New-MarkdownHelp -Module $buildInfo.ModuleName -OutputFolder (Join-Path $buildInfo.Path.Source.Module 'help') -Force
             }
@@ -1093,7 +1178,7 @@ task TestModuleImport {
             }
         }
 
-        Import-Module $buildInfo.Path.Build.Manifest.FullName -Global -ErrorAction Stop
+        Import-Module $buildInfo.Path.Build.Manifest.FullName -ErrorAction Stop
     }
 
     if ($buildInfo.BuildSystem -eq 'Desktop') {
@@ -1146,16 +1231,18 @@ task TestModule {
 
         Import-Module $buildInfo.Path.Build.Manifest -Global -ErrorAction Stop
         $params = @{
-            Script       = @{
+            Script     = @{
                 Path       = $path
                 Parameters = @{
                     UseExisting = $true
                 }
             }
-            CodeCoverage           = $buildInfo.Path.Build.RootModule
-            CodeCoverageOutputFile = Join-Path $buildInfo.Path.Build.Output 'pester-codecoverage.xml'
-            OutputFile             = Join-Path $buildInfo.Path.Build.Output ('{0}-nunit.xml' -f $buildInfo.ModuleName)
-            PassThru               = $true
+            OutputFile = Join-Path $buildInfo.Path.Build.Output ('{0}-nunit.xml' -f $buildInfo.ModuleName)
+            PassThru   = $true
+        }
+        if (Test-Path $buildInfo.Path.Build.RootModule) {
+            $params.Add('CodeCoverage', $buildInfo.Path.Build.RootModule)
+            $params.Add('CodeCoverageOutputFile', (Join-Path $buildInfo.Path.Build.Output 'pester-codecoverage.xml'))
         }
         Invoke-Pester @params
     }
@@ -1165,7 +1252,9 @@ task TestModule {
     } else {
         $pester = & $script -BuildInfo $buildInfo
     }
-    $pester | Convert-CodeCoverage -BuildInfo $buildInfo
+    if ($pester.CodeCoverage) {
+        $pester | Convert-CodeCoverage -BuildInfo $buildInfo
+    }
 
     $path = Join-Path $buildInfo.Path.Build.Output 'pester-output.xml'
     $pester | Export-CliXml $path
@@ -1228,7 +1317,7 @@ $buildInfo.BuildSystem -eq 'AppVeyor'
 ) {
     # Upload any test results to AppVeyor.
 
-    $path = Join-Path $buildInfo.Path.Build.Output ('{0}.xml' -f $buildInfo.ModuleName)
+    $path = Join-Path $buildInfo.Path.Build.Output ('{0}-nunit.xml' -f $buildInfo.ModuleName)
     if (Test-Path $path) {
         [System.Net.WebClient]::new().UploadFile(('https://ci.appveyor.com/api/testresults/nunit/{0}' -f $env:APPVEYOR_JOB_ID), $path)
     }
@@ -1256,15 +1345,17 @@ task ValidateTestResults {
     }
 
     # Pester code coverage
-    [Double]$codeCoverage = $pester.CodeCoverage.NumberOfCommandsExecuted / $pester.CodeCoverage.NumberOfCommandsAnalyzed
-    $pester.CodeCoverage.MissedCommands | Export-Csv (Join-Path $buildInfo.Path.Build.Output 'CodeCoverage.csv') -NoTypeInformation
+    if ($pester.CodeCoverage) {
+        [Double]$codeCoverage = $pester.CodeCoverage.NumberOfCommandsExecuted / $pester.CodeCoverage.NumberOfCommandsAnalyzed
+        $pester.CodeCoverage.MissedCommands | Export-Csv (Join-Path $buildInfo.Path.Build.Output 'CodeCoverage.csv') -NoTypeInformation
 
-    if ($codecoverage -lt $buildInfo.Config.CodeCoverageThreshold) {
-        'Pester code coverage ({0:P}) is below threshold {1:P}.' -f @(
-            $codeCoverage
-            $buildInfo.Config.CodeCoverageThreshold
-        )
-        $testsFailed = $true
+        if ($codecoverage -lt $buildInfo.Config.CodeCoverageThreshold) {
+            'Pester code coverage ({0:P}) is below threshold {1:P}.' -f @(
+                $codeCoverage
+                $buildInfo.Config.CodeCoverageThreshold
+            )
+            $testsFailed = $true
+        }
     }
 
     # Solution tests
