@@ -36,7 +36,23 @@
         'test_script:'
         '  - ps: Start-Build -BuildType Setup, Test'
         '  - pwsh: Start-Build -BuildType Setup, Test'
-    ) -f $env:SecureNugetApiKey
+        ''
+        'on_success:'
+        '  - ps: |'
+        '      $buildInfo = Get-BuildInfo'
+        '      [Version]$tagVersion = (git describe --tags --abbrev=0 2>$null) -replace "^v"'
+        ''
+        '      if ($tagVersion -eq $buildInfo.Version) {'
+        '          $galleryVersion = [Version](Find-Module $buildInfo.ModuleName).Version'
+        '          if ($buildInfo.Version -gt $galleryVersion) {'
+        '              Start-Build -BuildType Setup, Publish'
+        '          } else {'
+        '              Write-Host "Skipping publish: Already published" -ForegroundColor Greed'
+        '          }'
+        '      } else {'
+        '          Write-Host "Skipping publish: Last tag does not match build version" -ForegroundColor Yellow'
+        '      }'
+    )
 
     Set-Content $path -Value $content
 }
