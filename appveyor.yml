@@ -9,7 +9,6 @@ branches:
 skip_commits:
   message: /updated? readme.*s/
 
-
 environment:
   nugetapikey:
     secure: kp9PPkiJ/iiPfX0b1m/NYh88GLaok3NlJc1XAr6rWH+umpCiZVwvsK9CVfMNYElL
