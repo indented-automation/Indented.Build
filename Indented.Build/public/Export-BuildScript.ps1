@@ -97,7 +97,17 @@ function Export-BuildScript {
             }
         }
 
-    'Convert-CodeCoverage', 'ConvertTo-ChocoPackage', 'Enable-Metadata', 'Get-BuildInfo', 'Get-BuildItem', 'Get-FunctionInfo', 'Get-LevenshteinDistance' | ForEach-Object {
+    @(
+        'Convert-CodeCoverage'
+        'ConvertTo-ChocoPackage'
+        'Enable-Metadata'
+        'Get-Ast'
+        'Get-BuildInfo'
+        'Get-BuildItem'
+        'Get-FunctionInfo'
+        'Get-LevenshteinDistance'
+        'Get-MethodInfo'
+     ) | ForEach-Object {
         $null = $script.AppendFormat('function {0} {{', $_).
                         Append((Get-Command $_).Definition).
                         AppendLine('}').

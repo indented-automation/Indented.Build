@@ -63,28 +63,53 @@ function Convert-CodeCoverage {
     )
 
     begin {
-        $module = $buildInfo.Path.Build.RootModule |
+        $buildFunctions = $BuildInfo.Path.Build.RootModule |
             Get-FunctionInfo |
             Group-Object Name -AsHashTable
 
-        $functions = $BuildInfo |
+        $sourceFunctions = $BuildInfo |
             Get-BuildItem -Type ShouldMerge |
             Get-FunctionInfo |
             Group-Object Name -AsHashTable
+
+        $buildClasses = $BuildInfo.Path.Build.RootModule |
+            Get-MethodInfo |
+            Group-Object FullName -AsHashTable
+
+        $sourceClasses = $BuildInfo |
+            Get-BuildItem -Type ShouldMerge |
+            Get-MethodInfo |
+            Group-Object FullName -AsHashTable
     }
 
     process {
         foreach ($category in 'MissedCommands', 'HitCommands') {
             foreach ($command in $CodeCoverage.$category) {
-                $command.File = $functions[$command.Function].Extent.File
+                if ($command.Class) {
+                    $name = '{0}\{1}' -f $command.Class, $command.Function
 
-                $command.StartLine = $command.Line = $command.StartLine -
-                                     $module[$command.Function].Extent.StartLineNumber +
-                                     $functions[$command.Function].Extent.StartLineNumber
+                    if ($buildClasses.ContainsKey($name)) {
+                        $buildExtent = $buildClasses[$name].Extent
+                        $sourceExtent = $sourceClasses[$name].Extent
+                    }
+                } else {
+                    if ($buildFunctions.Contains($command.Function)) {
+                        $buildExtent = $buildFunctions[$command.Function].Extent
+                        $sourceExtent = $sourceFunctions[$command.Function].Extent
+                    }
+                }
 
-                $command.EndLine = $command.EndLine -
-                                   $module[$command.Function].Extent.StartLineNumber +
-                                   $functions[$command.Function].Extent.StartLineNumber
+                if ($buildExtent -and $sourceExtent) {
+                    $command.File = $sourceExtent.File
+
+                    $command.StartLine = $command.Line = $command.StartLine -
+                        $buildExtent.StartLineNumber +
+                        $sourceExtent.StartLineNumber
+
+                    $command.EndLine = $command.EndLine -
+                        $buildExtent.StartLineNumber +
+                        $sourceExtent.StartLineNumber
+                }
             }
         }
     }
@@ -390,6 +415,60 @@ function Enable-Metadata {
     }
 }
 
+function Get-Ast {
+    <#
+    .SYNOPSIS
+        Get the abstract syntax tree for either a file or a scriptblock.
+    .DESCRIPTION
+        Get the abstract syntax tree for either a file or a scriptblock.
+    #>
+
+    [CmdletBinding(DefaultParameterSetName = 'FromPath')]
+    [OutputType([System.Management.Automation.Language.ScriptBlockAst])]
+    param (
+        # The path to a file containing one or more functions.
+        [Parameter(Position = 1, ValueFromPipeline, ValueFromPipelineByPropertyName, ParameterSetName = 'FromPath')]
+        [Alias('FullName')]
+        [String]$Path,
+
+        # A script block containing one or more functions.
+        [Parameter(ParameterSetName = 'FromScriptBlock')]
+        [ScriptBlock]$ScriptBlock,
+
+        [Parameter(DontShow, ValueFromRemainingArguments)]
+        $Discard
+    )
+
+    process {
+        if ($pscmdlet.ParameterSetName -eq 'FromPath') {
+            $Path = $pscmdlet.GetUnresolvedProviderPathFromPSPath($Path)
+
+            try {
+                $tokens = $errors = @()
+                $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+                    $Path,
+                    [Ref]$tokens,
+                    [Ref]$errors
+                )
+                if ($errors[0].ErrorId -eq 'FileReadError') {
+                    throw [InvalidOperationException]::new($errors[0].Message)
+                }
+            } catch {
+                $errorRecord = @{
+                    Exception = $_.Exception.GetBaseException()
+                    ErrorId   = 'AstParserFailed'
+                    Category  = 'OperationStopped'
+                }
+                Write-Error @ErrorRecord
+            }
+        } else {
+            $ast = $ScriptBlock.Ast
+        }
+
+        $ast
+    }
+}
+
 function Get-BuildInfo {
     <#
     .SYNOPSIS
@@ -575,49 +654,34 @@ function Get-FunctionInfo {
     }
 
     process {
-        if ($pscmdlet.ParameterSetName -eq 'FromPath') {
-            $Path = $pscmdlet.GetUnresolvedProviderPathFromPSPath($Path)
+        try {
+            $ast = Get-Ast @psboundparameters
 
-            try {
-                $tokens = $errors = @()
-                $ast = [System.Management.Automation.Language.Parser]::ParseFile(
-                    $Path,
-                    [Ref]$tokens,
-                    [Ref]$errors
-                )
-                if ($errors[0].ErrorId -eq 'FileReadError') {
-                    throw [InvalidOperationException]::new($errors[0].Message)
+            $ast.FindAll(
+                {
+                    param( $childAst )
+
+                    $childAst -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+                    $childAst.Parent -isnot [System.Management.Automation.Language.FunctionMemberAst]
+                },
+                $IncludeNested
+            ) | ForEach-Object {
+                $ast = $_
+
+                try {
+                    $internalScriptBlock = $ast.Body.GetScriptBlock()
+                } catch {
+                    Write-Debug ('{0} :: {1} : {2}' -f $path, $ast.Name, $_.Exception.Message)
                 }
-            } catch {
-                $errorRecord = @{
-                    Exception = $_.Exception.GetBaseException()
-                    ErrorId   = 'AstParserFailed'
-                    Category  = 'OperationStopped'
+                if ($internalScriptBlock) {
+                    $extent = $ast.Extent | Select-Object File, StartLineNumber, EndLineNumber
+
+                    $constructor.Invoke(([String]$ast.Name, $internalScriptBlock, $null)) |
+                        Add-Member -NotePropertyName Extent -NotePropertyValue $extent -PassThru
                 }
-                Write-Error @ErrorRecord
             }
-        } else {
-            $ast = $ScriptBlock.Ast
-        }
-
-        $ast.FindAll( {
-                param( $childAst )
-
-                $childAst -is [System.Management.Automation.Language.FunctionDefinitionAst]
-            },
-            $IncludeNested
-        ) | ForEach-Object {
-            try {
-                $internalScriptBlock = $_.Body.GetScriptBlock()
-            } catch {
-                Write-Debug $_.Exception.Message
-            }
-            if ($internalScriptBlock) {
-                $extent = $_.Extent | Select-Object File, StartLineNumber, EndLineNumber
-
-                $constructor.Invoke(([String]$_.Name, $internalScriptBlock, $null)) |
-                    Add-Member -NotePropertyName Extent -NotePropertyValue $extent -PassThru
-            }
+        } catch {
+            Write-Error -ErrorRecord $_
         }
     }
 }
@@ -692,6 +756,59 @@ function Get-LevenshteinDistance {
             ReferenceString  = $ReferenceString
             DifferenceString = $DifferenceString
             Distance         = $costs[$costs.Count - 1]
+        }
+    }
+}
+
+function Get-MethodInfo {
+    <#
+    .SYNOPSIS
+        Get information about a method implemented in PowerShell class.
+    .DESCRIPTION
+        Get information about a method implemented in PowerShell class.
+    .EXAMPLE
+        Get-ChildItem -Filter *.psm1 | Get-MethodInfo
+
+        Get all methods declared within all classes in the *.psm1 file.
+    #>
+
+    [CmdletBinding(DefaultParameterSetName = 'FromPath')]
+    [OutputType('Indented.MemberInfo')]
+    param (
+        # The path to a file containing one or more functions.
+        [Parameter(Position = 1, ValueFromPipeline, ValueFromPipelineByPropertyName, ParameterSetName = 'FromPath')]
+        [Alias('FullName')]
+        [String]$Path,
+
+        # A script block containing one or more functions.
+        [Parameter(ParameterSetName = 'FromScriptBlock')]
+        [ScriptBlock]$ScriptBlock
+    )
+
+    process {
+        try {
+            $ast = Get-Ast @psboundparameters
+
+            $ast.FindAll(
+                {
+                    param( $childAst )
+
+                    $childAst -is [System.Management.Automation.Language.FunctionMemberAst]
+                },
+                $IncludeNested
+            ) | ForEach-Object {
+                $ast = $_
+
+                [PSCustomObject]@{
+                    Name       = $ast.Name
+                    FullName   = '{0}\{1}' -f $_.Parent.Name, $_.Name
+                    Extent     = $ast.Extent | Select-Object File, StartLineNumber, EndLineNumber
+                    Definition = $ast.Extent.ToString()
+                    PSTypeName = 'Indented.MemberInfo'
+                }
+            }
+        } catch {
+            Write-Error -ErrorRecord $_
         }
     }
 }
@@ -1006,6 +1123,7 @@ task UpdateMetadata {
                 $directory,
                 '{0}.dll' -f $buildInfo.ModuleName
             )
+
             if (Test-Path $assemblyPath) {
                 $script = {
                     param ( $assemblyPath )
@@ -1017,7 +1135,7 @@ task UpdateMetadata {
                     }
                 }
                 if ($buildInfo.BuildSystem -eq 'Desktop') {
-                    $moduleInfo = Start-Job -ArgumentList $assemblyPath -ScriptBlock $script | Receive-Job -Wait
+                    $moduleInfo = Start-Job -ScriptBlock $script -ArgumentList $assemblyPath | Receive-Job -Wait
                 } else {
                     $moduleInfo = & $script -Path $assemblyPath
                 }
@@ -1148,7 +1266,7 @@ task UpdateMarkdownHelp {
         try {
             $moduleInfo = Import-Module $buildInfo.Path.Build.Manifest.FullName -Global -ErrorAction Stop -PassThru
             if ($moduleInfo.ExportedCommands.Count -gt 0) {
-                New-MarkdownHelp -Module $buildInfo.ModuleName -OutputFolder (Join-Path $buildInfo.Path.Source.Module 'help') -Force
+                $null = New-MarkdownHelp -Module $buildInfo.ModuleName -OutputFolder (Join-Path $buildInfo.Path.Source.Module 'help') -Force
             }
         } catch {
             throw
@@ -1229,6 +1347,10 @@ task TestModule {
             }
         }
 
+        # Prevent the default code coverage report appearing.
+        Import-Module Pester
+        & (Get-Module pester) { Set-Item function:\Write-CoverageReport -Value 'return' }
+
         Import-Module $buildInfo.Path.Build.Manifest -Global -ErrorAction Stop
         $params = @{
             Script     = @{
@@ -1254,6 +1376,25 @@ task TestModule {
     }
     if ($pester.CodeCoverage) {
         $pester | Convert-CodeCoverage -BuildInfo $buildInfo
+
+        $pester.CodeCoverage.MissedCommands | Format-Table @(
+            @{ Name = 'File'; Expression = {
+                if ($_.File -eq $buildInfo.Path.Build.RootModule) {
+                    $buildInfo.Path.Build.RootModule.Name
+                } else {
+                    ($_.File -replace ([Regex]::Escape($buildInfo.Path.Source.Module))).TrimStart('\')
+                }
+            }}
+            @{ Name = 'Name'; Expression = {
+                if ($_.Class) {
+                    '{0}\{1}' -f $_.Class, $_.Function
+                } else {
+                    $_.Function
+                }
+            }}
+            'Line'
+            'Command'
+        )
     }
 
     $path = Join-Path $buildInfo.Path.Build.Output 'pester-output.xml'
