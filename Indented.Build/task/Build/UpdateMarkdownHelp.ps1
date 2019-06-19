@@ -17,7 +17,7 @@ BuildTask UpdateMarkdownHelp -Stage Build -Definition {
         try {
             $moduleInfo = Import-Module $buildInfo.Path.Build.Manifest.FullName -Global -ErrorAction Stop -PassThru
             if ($moduleInfo.ExportedCommands.Count -gt 0) {
-                New-MarkdownHelp -Module $buildInfo.ModuleName -OutputFolder (Join-Path $buildInfo.Path.Source.Module 'help') -Force
+                $null = New-MarkdownHelp -Module $buildInfo.ModuleName -OutputFolder (Join-Path $buildInfo.Path.Source.Module 'help') -Force
             }
         } catch {
             throw

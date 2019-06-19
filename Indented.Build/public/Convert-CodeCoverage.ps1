@@ -19,28 +19,53 @@ function Convert-CodeCoverage {
     )
 
     begin {
-        $module = $buildInfo.Path.Build.RootModule |
+        $buildFunctions = $BuildInfo.Path.Build.RootModule |
             Get-FunctionInfo |
             Group-Object Name -AsHashTable
 
-        $functions = $BuildInfo |
+        $sourceFunctions = $BuildInfo |
             Get-BuildItem -Type ShouldMerge |
             Get-FunctionInfo |
             Group-Object Name -AsHashTable
+
+        $buildClasses = $BuildInfo.Path.Build.RootModule |
+            Get-MethodInfo |
+            Group-Object FullName -AsHashTable
+
+        $sourceClasses = $BuildInfo |
+            Get-BuildItem -Type ShouldMerge |
+            Get-MethodInfo |
+            Group-Object FullName -AsHashTable
     }
 
     process {
         foreach ($category in 'MissedCommands', 'HitCommands') {
             foreach ($command in $CodeCoverage.$category) {
-                $command.File = $functions[$command.Function].Extent.File
+                if ($command.Class) {
+                    $name = '{0}\{1}' -f $command.Class, $command.Function
 
-                $command.StartLine = $command.Line = $command.StartLine -
-                                     $module[$command.Function].Extent.StartLineNumber +
-                                     $functions[$command.Function].Extent.StartLineNumber
+                    if ($buildClasses.ContainsKey($name)) {
+                        $buildExtent = $buildClasses[$name].Extent
+                        $sourceExtent = $sourceClasses[$name].Extent
+                    }
+                } else {
+                    if ($buildFunctions.Contains($command.Function)) {
+                        $buildExtent = $buildFunctions[$command.Function].Extent
+                        $sourceExtent = $sourceFunctions[$command.Function].Extent
+                    }
+                }
 
-                $command.EndLine = $command.EndLine -
-                                   $module[$command.Function].Extent.StartLineNumber +
-                                   $functions[$command.Function].Extent.StartLineNumber
+                if ($buildExtent -and $sourceExtent) {
+                    $command.File = $sourceExtent.File
+
+                    $command.StartLine = $command.Line = $command.StartLine -
+                        $buildExtent.StartLineNumber +
+                        $sourceExtent.StartLineNumber
+
+                    $command.EndLine = $command.EndLine -
+                        $buildExtent.StartLineNumber +
+                        $sourceExtent.StartLineNumber
+                }
             }
         }
     }

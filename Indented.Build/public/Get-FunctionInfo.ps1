@@ -42,49 +42,34 @@ function Get-FunctionInfo {
     }
 
     process {
-        if ($pscmdlet.ParameterSetName -eq 'FromPath') {
-            $Path = $pscmdlet.GetUnresolvedProviderPathFromPSPath($Path)
+        try {
+            $ast = Get-Ast @psboundparameters
 
-            try {
-                $tokens = $errors = @()
-                $ast = [System.Management.Automation.Language.Parser]::ParseFile(
-                    $Path,
-                    [Ref]$tokens,
-                    [Ref]$errors
-                )
-                if ($errors[0].ErrorId -eq 'FileReadError') {
-                    throw [InvalidOperationException]::new($errors[0].Message)
+            $ast.FindAll(
+                {
+                    param( $childAst )
+
+                    $childAst -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+                    $childAst.Parent -isnot [System.Management.Automation.Language.FunctionMemberAst]
+                },
+                $IncludeNested
+            ) | ForEach-Object {
+                $ast = $_
+
+                try {
+                    $internalScriptBlock = $ast.Body.GetScriptBlock()
+                } catch {
+                    Write-Debug ('{0} :: {1} : {2}' -f $path, $ast.Name, $_.Exception.Message)
                 }
-            } catch {
-                $errorRecord = @{
-                    Exception = $_.Exception.GetBaseException()
-                    ErrorId   = 'AstParserFailed'
-                    Category  = 'OperationStopped'
+                if ($internalScriptBlock) {
+                    $extent = $ast.Extent | Select-Object File, StartLineNumber, EndLineNumber
+
+                    $constructor.Invoke(([String]$ast.Name, $internalScriptBlock, $null)) |
+                        Add-Member -NotePropertyName Extent -NotePropertyValue $extent -PassThru
                 }
-                Write-Error @ErrorRecord
             }
-        } else {
-            $ast = $ScriptBlock.Ast
-        }
-
-        $ast.FindAll( {
-                param( $childAst )
-
-                $childAst -is [System.Management.Automation.Language.FunctionDefinitionAst]
-            },
-            $IncludeNested
-        ) | ForEach-Object {
-            try {
-                $internalScriptBlock = $_.Body.GetScriptBlock()
-            } catch {
-                Write-Debug $_.Exception.Message
-            }
-            if ($internalScriptBlock) {
-                $extent = $_.Extent | Select-Object File, StartLineNumber, EndLineNumber
-
-                $constructor.Invoke(([String]$_.Name, $internalScriptBlock, $null)) |
-                    Add-Member -NotePropertyName Extent -NotePropertyValue $extent -PassThru
-            }
+        } catch {
+            Write-Error -ErrorRecord $_
         }
     }
 }

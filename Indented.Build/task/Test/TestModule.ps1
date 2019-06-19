@@ -18,6 +18,10 @@ BuildTask TestModule -Stage Test -Order 2 -Definition {
             }
         }
 
+        # Prevent the default code coverage report appearing.
+        Import-Module Pester
+        & (Get-Module pester) { Set-Item function:\Write-CoverageReport -Value 'return' }
+
         Import-Module $buildInfo.Path.Build.Manifest -Global -ErrorAction Stop
         $params = @{
             Script     = @{
@@ -43,6 +47,25 @@ BuildTask TestModule -Stage Test -Order 2 -Definition {
     }
     if ($pester.CodeCoverage) {
         $pester | Convert-CodeCoverage -BuildInfo $buildInfo
+
+        $pester.CodeCoverage.MissedCommands | Format-Table @(
+            @{ Name = 'File'; Expression = {
+                if ($_.File -eq $buildInfo.Path.Build.RootModule) {
+                    $buildInfo.Path.Build.RootModule.Name
+                } else {
+                    ($_.File -replace ([Regex]::Escape($buildInfo.Path.Source.Module))).TrimStart('\')
+                }
+            }}
+            @{ Name = 'Name'; Expression = {
+                if ($_.Class) {
+                    '{0}\{1}' -f $_.Class, $_.Function
+                } else {
+                    $_.Function
+                }
+            }}
+            'Line'
+            'Command'
+        )
     }
 
     $path = Join-Path $buildInfo.Path.Build.Output 'pester-output.xml'
