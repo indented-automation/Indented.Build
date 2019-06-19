@@ -45,7 +45,7 @@ BuildTask ImportNuget -Stage Build -If {
             Where-Object { -not $package.FrameworkVersion -or $_.NumericVersion -le [Int]($package.FrameworkVersion -replace 'net') } |
             Select-Object -First 1
 
-        Copy-Item -Path $assembly.FullName -Destination $destinationPath
+        Copy-Item -Path $assembly.Path -Destination $destinationPath
 
         Remove-Item $archivePath -Recurse
         Remove-Item $nupkgPath

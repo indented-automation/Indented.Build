@@ -1,6 +1,6 @@
 image: Visual Studio 2017
 
-version: 3.0.6.{build}
+version: 3.0.7.{build}
 
 branches:
   only:
@@ -8,6 +8,11 @@ branches:
 
 skip_commits:
   message: /updated? readme.*s/
+
+
+environment:
+  nugetapikey:
+    secure: kp9PPkiJ/iiPfX0b1m/NYh88GLaok3NlJc1XAr6rWH+umpCiZVwvsK9CVfMNYElL
 
 build: false
 
@@ -30,3 +35,17 @@ test_script:
       Install-Module Configuration, Pester, InvokeBuild -Force
       Import-Module .\build\Indented.Build
       Invoke-Build -Task Setup, Test -BuildInfo (Get-BuildInfo)
+
+on_success:
+  - ps: |
+      $buildInfo = Get-BuildInfo
+      [Version]$tagVersion = (git describe --tags --abbrev=0 2>$null) -replace '^v'
+
+      if ($tagVersion -eq $buildInfo.Version) {
+          $galleryVersion = [Version](Find-Module $buildInfo.ModuleName).Version
+          if ($buildInfo.Version -gt $galleryVersion) {
+              Invoke-Build -Task Setup, Publish -BuildInfo (Get-BuildInfo)
+          }
+      } else {
+          throw 'Last tag does not match build version'
+      }
