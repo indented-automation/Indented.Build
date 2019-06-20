@@ -6,6 +6,8 @@ param (
     [PSObject[]]$BuildInfo
 )
 
+Set-Alias MSBuild (Resolve-MSBuild) -ErrorAction SilentlyContinue
+
 task default Setup,
              Build,
              Test,

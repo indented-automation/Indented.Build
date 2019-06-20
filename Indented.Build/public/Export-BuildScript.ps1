@@ -35,6 +35,8 @@ function Export-BuildScript {
                     AppendLine('    [ValidateCount(1, 1)]').
                     AppendLine('    [PSObject[]]$BuildInfo').
                     AppendLine(')').
+                    AppendLine().
+                    AppendLine('Set-Alias MSBuild (Resolve-MSBuild) -ErrorAction SilentlyContinue').
                     AppendLine()
 
     $tasks = $BuildInfo | Get-BuildTask | Sort-Object {
