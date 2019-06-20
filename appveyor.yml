@@ -1,6 +1,6 @@
 image: Visual Studio 2017
 
-version: 3.0.8.{build}
+version: 3.0.10.{build}
 
 branches:
   only:
@@ -45,7 +45,7 @@ on_success:
           if ($buildInfo.Version -gt $galleryVersion) {
               Invoke-Build -Task Setup, Publish -BuildInfo (Get-BuildInfo)
           } else {
-              Write-Host "Skipping publish: Already published" -ForegroundColor Greed
+              Write-Host "Skipping publish: Already published" -ForegroundColor Green
           }
       } else {
           Write-Host "Skipping publish: Last tag does not match build version" -ForegroundColor Yellow
