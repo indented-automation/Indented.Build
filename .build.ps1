@@ -1178,11 +1178,12 @@ task UpdateMetadata {
                         param ( $ast )
 
                         $ast -is [System.Management.AUtomation.Language.AttributeAst] -and
-                        $args[0].TypeName.Name -eq 'Alias'
+                        $ast.TypeName.Name -eq 'Alias'
                 }, $false).PositionalArguments.Value
             }
             if ($aliasesToExport) {
                 $aliasesToExport += @(Get-Metadata $path -PropertyName AliasesToExport -ErrorAction SilentlyContinue)
+                $aliasesToExport = @($aliasesToExport) -ne '*'
 
                 if (Enable-Metadata $path -PropertyName AliasesToExport) {
                     Update-Metadata $path -PropertyName AliasesToExport -Value $aliasesToExport
