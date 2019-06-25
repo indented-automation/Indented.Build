@@ -1183,7 +1183,7 @@ task UpdateMetadata {
             }
             if ($aliasesToExport) {
                 $aliasesToExport += @(Get-Metadata $path -PropertyName AliasesToExport -ErrorAction SilentlyContinue)
-                $aliasesToExport = @($aliasesToExport) -ne '*'
+                $aliasesToExport = @($aliasesToExport) -ne '*' -ne ''
 
                 if (Enable-Metadata $path -PropertyName AliasesToExport) {
                     Update-Metadata $path -PropertyName AliasesToExport -Value $aliasesToExport
