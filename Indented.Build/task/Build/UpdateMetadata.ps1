@@ -86,7 +86,7 @@ BuildTask UpdateMetadata -Stage Build -Order 5 -Definition {
             }
             if ($aliasesToExport) {
                 $aliasesToExport += @(Get-Metadata $path -PropertyName AliasesToExport -ErrorAction SilentlyContinue)
-                $aliasesToExport = @($aliasesToExport) -ne '*' -ne ''
+                $aliasesToExport = $aliasesToExport | Where-Object { $_ -and $_ -ne '*' }
 
                 if (Enable-Metadata $path -PropertyName AliasesToExport) {
                     Update-Metadata $path -PropertyName AliasesToExport -Value $aliasesToExport

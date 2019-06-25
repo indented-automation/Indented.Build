@@ -12,7 +12,7 @@
 RootModule = 'Indented.Build.psm1'
 
 # Version number of this module.
-ModuleVersion = '3.0.12'
+ModuleVersion = '3.0.13'
 
 # Supported PSEditions
 CompatiblePSEditions = @('Core', 'Desktop')
