@@ -75,24 +75,22 @@ function Convert-CodeCoverage {
             Group-Object Name -AsHashTable
 
         $buildClasses = $BuildInfo.Path.Build.RootModule |
-            Get-MethodInfo |
-            Group-Object FullName -AsHashTable
+            Get-ClassInfo |
+            Group-Object Name -AsHashTable
 
         $sourceClasses = $BuildInfo |
             Get-BuildItem -Type ShouldMerge |
-            Get-MethodInfo |
-            Group-Object FullName -AsHashTable
+            Get-ClassInfo |
+            Group-Object Name -AsHashTable
     }
 
     process {
         foreach ($category in 'MissedCommands', 'HitCommands') {
             foreach ($command in $CodeCoverage.$category) {
                 if ($command.Class) {
-                    $name = '{0}\{1}' -f $command.Class, $command.Function
-
-                    if ($buildClasses.ContainsKey($name)) {
-                        $buildExtent = $buildClasses[$name].Extent
-                        $sourceExtent = $sourceClasses[$name].Extent
+                    if ($buildClasses.ContainsKey($command.Class)) {
+                        $buildExtent = $buildClasses[$command.Class].Extent
+                        $sourceExtent = $sourceClasses[$command.Class].Extent
                     }
                 } else {
                     if ($buildFunctions.Contains($command.Function)) {
@@ -1352,7 +1350,11 @@ task TestModule {
 
         # Prevent the default code coverage report appearing.
         Import-Module Pester
-        & (Get-Module pester) { Set-Item function:\Write-CoverageReport -Value 'return' }
+        & (Get-Module pester) {
+            $definition = Get-Content function:Write-CoverageReport
+            $definition = $definition -replace '(\$report.+Format-Table)', '# $1'
+            Set-Item function:Write-CoverageReport -Value $definition
+        }
 
         Import-Module $buildInfo.Path.Build.Manifest -Global -ErrorAction Stop
         $params = @{

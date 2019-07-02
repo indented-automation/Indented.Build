@@ -29,24 +29,22 @@ function Convert-CodeCoverage {
             Group-Object Name -AsHashTable
 
         $buildClasses = $BuildInfo.Path.Build.RootModule |
-            Get-MethodInfo |
-            Group-Object FullName -AsHashTable
+            Get-ClassInfo |
+            Group-Object Name -AsHashTable
 
         $sourceClasses = $BuildInfo |
             Get-BuildItem -Type ShouldMerge |
-            Get-MethodInfo |
-            Group-Object FullName -AsHashTable
+            Get-ClassInfo |
+            Group-Object Name -AsHashTable
     }
 
     process {
         foreach ($category in 'MissedCommands', 'HitCommands') {
             foreach ($command in $CodeCoverage.$category) {
                 if ($command.Class) {
-                    $name = '{0}\{1}' -f $command.Class, $command.Function
-
-                    if ($buildClasses.ContainsKey($name)) {
-                        $buildExtent = $buildClasses[$name].Extent
-                        $sourceExtent = $sourceClasses[$name].Extent
+                    if ($buildClasses.ContainsKey($command.Class)) {
+                        $buildExtent = $buildClasses[$command.Class].Extent
+                        $sourceExtent = $sourceClasses[$command.Class].Extent
                     }
                 } else {
                     if ($buildFunctions.Contains($command.Function)) {

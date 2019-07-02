@@ -20,7 +20,11 @@ BuildTask TestModule -Stage Test -Order 2 -Definition {
 
         # Prevent the default code coverage report appearing.
         Import-Module Pester
-        & (Get-Module pester) { Set-Item function:\Write-CoverageReport -Value 'return' }
+        & (Get-Module pester) {
+            $definition = Get-Content function:Write-CoverageReport
+            $definition = $definition -replace '(\$report.+Format-Table)', '# $1'
+            Set-Item function:Write-CoverageReport -Value $definition
+        }
 
         Import-Module $buildInfo.Path.Build.Manifest -Global -ErrorAction Stop
         $params = @{

@@ -33,7 +33,7 @@ InModuleScope Indented.Build {
                     ModuleName = 'Module'
                     Path       = [PSCustomObject]@{
                         Source = [PSCustomObject]@{
-                            Module = Get-Item (Get-Item 'TestDrive:\Module\Module').FullName
+                            Module = Join-Path $TestDrive 'Module\Module'
                         }
                     }
                     PSTypeName = 'Indented.BuildInfo'
@@ -45,8 +45,6 @@ InModuleScope Indented.Build {
             Add-PesterTemplate @defaultParams
 
             'TestDrive:\Module\Module\test\public\function.tests.ps1' | Should -Exist
-
-            Get-ChildItem TestDrive -Recurse -Force | Out-String | Write-Host
         }
 
         It 'Writes a header to generated files' {
