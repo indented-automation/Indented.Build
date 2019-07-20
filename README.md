@@ -1,6 +1,6 @@
 # Indented.Build
 
-[![Build status](https://ci.appveyor.com/api/projects/status/j4fg3mj2d4ibyt1c?svg=true)](https://ci.appveyor.com/project/indented*automation/indented*build)
+[![Build status](https://ci.appveyor.com/api/projects/status/j4fg3mj2d4ibyt1c?svg=true)](https://ci.appveyor.com/project/indented-automation/indented-build)
 
 Indented.Build centralises the build processes / scripts used by my modules.
 
