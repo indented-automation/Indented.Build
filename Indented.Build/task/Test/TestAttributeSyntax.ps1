@@ -1,46 +1,64 @@
-BuildTask TestAttributeSyntax -Stage Build -Order 2 -Definition {
+BuildTask TestAttributeSyntax -Stage Test -Order 1 -Definition {
     # Attempt to test whether or not attributes used within a script contain errors.
     #
-    # If an attribute does not appear to exist it is compared with a list of common attributes from the System.Management.Automation namespace.
+    # If an attribute does not appear to exist it is compared with a list of common attributes from the System.Management.Automation namespace and any classes declared within the module.
     #
     # If the non-existent attribute has a Levenshtein distance less than 3 from a known attribute it will be flagged as a typo and the build will fail.
     #
     # Otherwise the author is assumed to have implemented and used a new attribute which is declared elsewhere.
 
-    $commonAttributes = [PowerShell].Assembly.GetTypes() |
-        Where-Object { $_.Name -match 'Attribute$' -and $_.IsPublic } |
-        ForEach-Object {
-            $_.Name
-            $_.Name -replace 'Attribute$'
-        }
+    $script = {
+        param (
+            $buildInfo
+        )
 
-    $hasSyntaxErrors = $false
-    $buildInfo | Get-BuildItem -Type ShouldMerge -ExcludeClass | ForEach-Object {
+        Import-Module $buildInfo.Path.Build.Manifest
+
+        $commonAttributes = [PowerShell].Assembly.GetTypes() |
+            Where-Object { $_.Name -match 'Attribute$' -and $_.IsPublic } |
+            ForEach-Object {
+                $_.Name
+                $_.Name -replace 'Attribute$'
+            }
+
+        $hasSyntaxErrors = $false
         $tokens = $null
         [System.Management.Automation.Language.ParseError[]]$parseErrors = @()
-        $ast = [System.Management.Automation.Language.Parser]::ParseInput(
-            (Get-Content $_.FullName -Raw),
-            $_.FullName,
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+            $buildInfo.Path.Build.RootModule,
             [Ref]$tokens,
             [Ref]$parseErrors
         )
+        $moduleClasses = $ast.FindAll(
+            {
+                param ( $childAst )
+
+                $childAst -is [System.Management.Automation.Language.TypeDefinitionAst] -and
+                $childAst.IsClass
+            },
+            $true
+        ) | Group-Object Name -AsHashTable -AsString
 
         $attributes = $ast.FindAll(
-            { $args[0] -is [System.Management.Automation.Language.AttributeAst] },
+            {
+                param ( $childAst )
+
+                $childAst -is [System.Management.Automation.Language.AttributeAst]
+            },
             $true
         )
         foreach ($attribute in $attributes) {
-            if (($type = $attribute.TypeName.FullName -as [Type]) -or ($type = ('{0}Attribute' -f $attribute.TypeName.FullName) -as [Type])) {
+            if ($moduleClasses -and $moduleClasses.Contains($attribute.TypeName.FullName)) {
+                continue
+            } elseif (($type = $attribute.TypeName.FullName -as [Type]) -or ($type = ('{0}Attribute' -f $attribute.TypeName.FullName) -as [Type])) {
                 $propertyNames = $type.GetProperties().Name
 
                 if ($attribute.NamedArguments.Count -gt 0) {
                     foreach ($argument in $attribute.NamedArguments) {
                         if ($argument.ArgumentName -notin $propertyNames) {
-                            Write-Warning ('Invalid property name in attribute declaration: {0}: {1} at line {2}, character {3}' -f @(
-                                $_.Name
+                            Write-Warning ('Invalid property name in attribute declaration: {0} at line {1}' -f @(
                                 $argument.ArgumentName
                                 $argument.Extent.StartLineNumber
-                                $argument.Extent.StartColumnNumber
                             ))
 
                             $hasSyntaxErrors = $true
@@ -56,7 +74,7 @@ BuildTask TestAttributeSyntax -Stage Build -Order 2 -Definition {
                     Where-Object Distance -lt 3 |
                     Select-Object -First 1
 
-                $message = 'Unknown attribute declared: {0}: {1} at line {2}, character {3}.'
+                $message = 'Unknown attribute declared: {0} at line {1}.'
                 if ($closestMatch) {
                     $message = '{0} Suggested name: {1}' -f @(
                         $message
@@ -66,14 +84,20 @@ BuildTask TestAttributeSyntax -Stage Build -Order 2 -Definition {
                 }
 
                 Write-Warning ($message -f @(
-                    $_.Name
                     $attribute.TypeName.FullName
                     $attribute.Extent.StartLineNumber
-                    $attribute.Extent.StartColumnNumber
                 ))
 
             }
         }
+
+        return $hasSyntaxErrors
+    }
+
+    if ($buildInfo.BuildSystem -eq 'Desktop') {
+        $hasSyntaxErrors = Start-Job -ArgumentList $buildInfo -ScriptBlock $script | Receive-Job -Wait
+    } else {
+        $hasSyntaxErrors = & $script -BuildInfo $buildInfo
     }
 
     if ($hasSyntaxErrors) {

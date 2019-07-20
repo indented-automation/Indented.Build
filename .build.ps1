@@ -19,13 +19,13 @@ task Setup SetBuildInfo,
 
 task Build Clean,
            TestSyntax,
-           TestAttributeSyntax,
            CopyModuleFiles,
            Merge,
            UpdateMetadata,
            UpdateMarkdownHelp
 
 task Test TestModuleImport,
+          TestAttributeSyntax,
           PSScriptAnalyzer,
           TestModule,
           AddAppveyorCompilationMessage,
@@ -56,12 +56,17 @@ function Convert-CodeCoverage {
 
     [CmdletBinding()]
     param (
+        # The original code coverage report.
         [Parameter(Mandatory, Position = 1, ValueFromPipelineByPropertyName)]
         [PSObject]$CodeCoverage,
 
+        # The output from Get-BuildInfo for this project.
         [Parameter(Mandatory)]
         [PSTypeName('Indented.BuildInfo')]
-        [PSObject]$BuildInfo
+        [PSObject]$BuildInfo,
+
+        # Write missed commands using format table as they are discovered.
+        [Switch]$Tee
     )
 
     begin {
@@ -110,6 +115,27 @@ function Convert-CodeCoverage {
                         $buildExtent.StartLineNumber +
                         $sourceExtent.StartLineNumber
                 }
+            }
+
+            if ($Tee -and $category -eq 'MissedCommands') {
+                $CodeCoverage.$category | Format-Table @(
+                    @{ Name = 'File'; Expression = {
+                        if ($_.File -eq $buildInfo.Path.Build.RootModule) {
+                            $buildInfo.Path.Build.RootModule.Name
+                        } else {
+                            ($_.File -replace ([Regex]::Escape($buildInfo.Path.Source.Module))).TrimStart('\')
+                        }
+                    }}
+                    @{ Name = 'Name'; Expression = {
+                        if ($_.Class) {
+                            '{0}\{1}' -f $_.Class, $_.Function
+                        } else {
+                            $_.Function
+                        }
+                    }}
+                    'Line'
+                    'Command'
+                )
             }
         }
     }
@@ -952,89 +978,6 @@ task TestSyntax {
     }
 }
 
-task TestAttributeSyntax {
-    # Attempt to test whether or not attributes used within a script contain errors.
-    #
-    # If an attribute does not appear to exist it is compared with a list of common attributes from the System.Management.Automation namespace.
-    #
-    # If the non-existent attribute has a Levenshtein distance less than 3 from a known attribute it will be flagged as a typo and the build will fail.
-    #
-    # Otherwise the author is assumed to have implemented and used a new attribute which is declared elsewhere.
-
-    $commonAttributes = [PowerShell].Assembly.GetTypes() |
-        Where-Object { $_.Name -match 'Attribute$' -and $_.IsPublic } |
-        ForEach-Object {
-            $_.Name
-            $_.Name -replace 'Attribute$'
-        }
-
-    $hasSyntaxErrors = $false
-    $buildInfo | Get-BuildItem -Type ShouldMerge -ExcludeClass | ForEach-Object {
-        $tokens = $null
-        [System.Management.Automation.Language.ParseError[]]$parseErrors = @()
-        $ast = [System.Management.Automation.Language.Parser]::ParseInput(
-            (Get-Content $_.FullName -Raw),
-            $_.FullName,
-            [Ref]$tokens,
-            [Ref]$parseErrors
-        )
-
-        $attributes = $ast.FindAll(
-            { $args[0] -is [System.Management.Automation.Language.AttributeAst] },
-            $true
-        )
-        foreach ($attribute in $attributes) {
-            if (($type = $attribute.TypeName.FullName -as [Type]) -or ($type = ('{0}Attribute' -f $attribute.TypeName.FullName) -as [Type])) {
-                $propertyNames = $type.GetProperties().Name
-
-                if ($attribute.NamedArguments.Count -gt 0) {
-                    foreach ($argument in $attribute.NamedArguments) {
-                        if ($argument.ArgumentName -notin $propertyNames) {
-                            Write-Warning ('Invalid property name in attribute declaration: {0}: {1} at line {2}, character {3}' -f @(
-                                $_.Name
-                                $argument.ArgumentName
-                                $argument.Extent.StartLineNumber
-                                $argument.Extent.StartColumnNumber
-                            ))
-
-                            $hasSyntaxErrors = $true
-                        }
-                    }
-                }
-            } else {
-                $params = @{
-                    ReferenceString  = $attribute.TypeName.Name
-                }
-                $closestMatch = $commonAttributes |
-                    Get-LevenshteinDistance @params |
-                    Where-Object Distance -lt 3 |
-                    Select-Object -First 1
-
-                $message = 'Unknown attribute declared: {0}: {1} at line {2}, character {3}.'
-                if ($closestMatch) {
-                    $message = '{0} Suggested name: {1}' -f @(
-                        $message
-                        $closestMatch.DifferenceString
-                    )
-                    $hasSyntaxErrors = $true
-                }
-
-                Write-Warning ($message -f @(
-                    $_.Name
-                    $attribute.TypeName.FullName
-                    $attribute.Extent.StartLineNumber
-                    $attribute.Extent.StartColumnNumber
-                ))
-
-            }
-        }
-    }
-
-    if ($hasSyntaxErrors) {
-        throw 'TestAttributeSyntax failed'
-    }
-}
-
 task CopyModuleFiles {
     # Copy files which should not be merged into the psm1 into the build area.
 
@@ -1307,20 +1250,119 @@ task TestModuleImport {
     }
 }
 
+task TestAttributeSyntax {
+    # Attempt to test whether or not attributes used within a script contain errors.
+    #
+    # If an attribute does not appear to exist it is compared with a list of common attributes from the System.Management.Automation namespace and any classes declared within the module.
+    #
+    # If the non-existent attribute has a Levenshtein distance less than 3 from a known attribute it will be flagged as a typo and the build will fail.
+    #
+    # Otherwise the author is assumed to have implemented and used a new attribute which is declared elsewhere.
+
+    $script = {
+        param (
+            $buildInfo
+        )
+
+        Import-Module $buildInfo.Path.Build.Manifest
+
+        $commonAttributes = [PowerShell].Assembly.GetTypes() |
+            Where-Object { $_.Name -match 'Attribute$' -and $_.IsPublic } |
+            ForEach-Object {
+                $_.Name
+                $_.Name -replace 'Attribute$'
+            }
+
+        $hasSyntaxErrors = $false
+        $tokens = $null
+        [System.Management.Automation.Language.ParseError[]]$parseErrors = @()
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+            $buildInfo.Path.Build.RootModule,
+            [Ref]$tokens,
+            [Ref]$parseErrors
+        )
+        $moduleClasses = $ast.FindAll(
+            {
+                param ( $childAst )
+
+                $childAst -is [System.Management.Automation.Language.TypeDefinitionAst] -and
+                $childAst.IsClass
+            },
+            $true
+        ) | Group-Object Name -AsHashTable -AsString
+
+        $attributes = $ast.FindAll(
+            {
+                param ( $childAst )
+
+                $childAst -is [System.Management.Automation.Language.AttributeAst]
+            },
+            $true
+        )
+        foreach ($attribute in $attributes) {
+            if ($moduleClasses -and $moduleClasses.Contains($attribute.TypeName.FullName)) {
+                continue
+            } elseif (($type = $attribute.TypeName.FullName -as [Type]) -or ($type = ('{0}Attribute' -f $attribute.TypeName.FullName) -as [Type])) {
+                $propertyNames = $type.GetProperties().Name
+
+                if ($attribute.NamedArguments.Count -gt 0) {
+                    foreach ($argument in $attribute.NamedArguments) {
+                        if ($argument.ArgumentName -notin $propertyNames) {
+                            Write-Warning ('Invalid property name in attribute declaration: {0} at line {1}' -f @(
+                                $argument.ArgumentName
+                                $argument.Extent.StartLineNumber
+                            ))
+
+                            $hasSyntaxErrors = $true
+                        }
+                    }
+                }
+            } else {
+                $params = @{
+                    ReferenceString  = $attribute.TypeName.Name
+                }
+                $closestMatch = $commonAttributes |
+                    Get-LevenshteinDistance @params |
+                    Where-Object Distance -lt 3 |
+                    Select-Object -First 1
+
+                $message = 'Unknown attribute declared: {0} at line {1}.'
+                if ($closestMatch) {
+                    $message = '{0} Suggested name: {1}' -f @(
+                        $message
+                        $closestMatch.DifferenceString
+                    )
+                    $hasSyntaxErrors = $true
+                }
+
+                Write-Warning ($message -f @(
+                    $attribute.TypeName.FullName
+                    $attribute.Extent.StartLineNumber
+                ))
+
+            }
+        }
+
+        return $hasSyntaxErrors
+    }
+
+    if ($buildInfo.BuildSystem -eq 'Desktop') {
+        $hasSyntaxErrors = Start-Job -ArgumentList $buildInfo -ScriptBlock $script | Receive-Job -Wait
+    } else {
+        $hasSyntaxErrors = & $script -BuildInfo $buildInfo
+    }
+
+    if ($hasSyntaxErrors) {
+        throw 'TestAttributeSyntax failed'
+    }
+}
+
 task PSScriptAnalyzer {
     # Invoke PSScriptAnalyzer tests.
 
     try {
-        Push-Location $buildInfo.Path.Source.Module
-        'priv*', 'pub*', 'InitializeModule.ps1' | Where-Object { Test-Path $_ } | ForEach-Object {
-            $path = Resolve-Path (Join-Path $buildInfo.Path.Source.Module $_)
-            if (Test-Path $path) {
-                Invoke-ScriptAnalyzer -Path $path -Recurse | ForEach-Object {
-                    $_ | Select-Object RuleName, Severity, Line, Message, ScriptName, ScriptPath
-                    $_ | Export-Csv (Join-Path $buildInfo.Path.Build.Output 'psscriptanalyzer.csv') -NoTypeInformation -Append
-                }
-            }
-        }
+        Invoke-ScriptAnalyzer -Path $buildInfo.Path.Build.RootModule |
+            Select-Object RuleName, Severity, Line, Message
     } catch {
         throw
     } finally {
@@ -1380,26 +1422,7 @@ task TestModule {
         $pester = & $script -BuildInfo $buildInfo
     }
     if ($pester.CodeCoverage) {
-        $pester | Convert-CodeCoverage -BuildInfo $buildInfo
-
-        $pester.CodeCoverage.MissedCommands | Format-Table @(
-            @{ Name = 'File'; Expression = {
-                if ($_.File -eq $buildInfo.Path.Build.RootModule) {
-                    $buildInfo.Path.Build.RootModule.Name
-                } else {
-                    ($_.File -replace ([Regex]::Escape($buildInfo.Path.Source.Module))).TrimStart('\')
-                }
-            }}
-            @{ Name = 'Name'; Expression = {
-                if ($_.Class) {
-                    '{0}\{1}' -f $_.Class, $_.Function
-                } else {
-                    $_.Function
-                }
-            }}
-            'Line'
-            'Command'
-        )
+        $pester | Convert-CodeCoverage -BuildInfo $buildInfo -Tee
     }
 
     $path = Join-Path $buildInfo.Path.Build.Output 'pester-output.xml'

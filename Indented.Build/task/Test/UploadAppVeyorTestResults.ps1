@@ -1,4 +1,4 @@
-﻿BuildTask UploadAppVeyorTestResults -Stage Test -Order 3 -If {
+﻿BuildTask UploadAppVeyorTestResults -Stage Test -Order 1024 -If {
     $buildInfo.BuildSystem -eq 'AppVeyor'
 } -Definition {
     # Upload any test results to AppVeyor.

@@ -1,4 +1,4 @@
-BuildTask TestSolution -Stage Test -If {
+BuildTask TestSolution -Stage Test -Order 3 -If {
     Test-Path (Join-Path $buildInfo.Path.Source.Module 'class*\packages\NUnit.ConsoleRunner.*\tools\nunit3-console.exe')
 } -Definition {
     # If a visual studio solution is present, and nunit-console has been restored by nuget, execute unit tests.

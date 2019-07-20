@@ -1,4 +1,4 @@
-BuildTask TestModule -Stage Test -Order 2 -Definition {
+BuildTask TestModule -Stage Test -Order 3 -Definition {
     # Run Pester tests.
 
     if (-not (Get-ChildItem (Resolve-Path (Join-Path $buildInfo.Path.Source.Module 'test*')).Path -Filter *.tests.ps1 -Recurse -File)) {
@@ -50,26 +50,7 @@ BuildTask TestModule -Stage Test -Order 2 -Definition {
         $pester = & $script -BuildInfo $buildInfo
     }
     if ($pester.CodeCoverage) {
-        $pester | Convert-CodeCoverage -BuildInfo $buildInfo
-
-        $pester.CodeCoverage.MissedCommands | Format-Table @(
-            @{ Name = 'File'; Expression = {
-                if ($_.File -eq $buildInfo.Path.Build.RootModule) {
-                    $buildInfo.Path.Build.RootModule.Name
-                } else {
-                    ($_.File -replace ([Regex]::Escape($buildInfo.Path.Source.Module))).TrimStart('\')
-                }
-            }}
-            @{ Name = 'Name'; Expression = {
-                if ($_.Class) {
-                    '{0}\{1}' -f $_.Class, $_.Function
-                } else {
-                    $_.Function
-                }
-            }}
-            'Line'
-            'Command'
-        )
+        $pester | Convert-CodeCoverage -BuildInfo $buildInfo -Tee
     }
 
     $path = Join-Path $buildInfo.Path.Build.Output 'pester-output.xml'

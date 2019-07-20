@@ -13,7 +13,7 @@ Converts code coverage line and file reference from root module to file.
 ## SYNTAX
 
 ```
-Convert-CodeCoverage [-CodeCoverage] <PSObject> -BuildInfo <PSObject> [<CommonParameters>]
+Convert-CodeCoverage [-CodeCoverage] <PSObject> -BuildInfo <PSObject> [-Tee] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -33,7 +33,7 @@ PS C:\> {{ Add example code here }}
 ## PARAMETERS
 
 ### -CodeCoverage
-{{ Fill CodeCoverage Description }}
+The original code coverage report.
 
 ```yaml
 Type: PSObject
@@ -48,7 +48,7 @@ Accept wildcard characters: False
 ```
 
 ### -BuildInfo
-{{ Fill BuildInfo Description }}
+The output from Get-BuildInfo for this project.
 
 ```yaml
 Type: PSObject
@@ -58,6 +58,21 @@ Aliases:
 Required: True
 Position: Named
 Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Tee
+Write missed commands using format table as they are discovered.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: False
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

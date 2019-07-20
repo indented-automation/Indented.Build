@@ -10,12 +10,17 @@ function Convert-CodeCoverage {
 
     [CmdletBinding()]
     param (
+        # The original code coverage report.
         [Parameter(Mandatory, Position = 1, ValueFromPipelineByPropertyName)]
         [PSObject]$CodeCoverage,
 
+        # The output from Get-BuildInfo for this project.
         [Parameter(Mandatory)]
         [PSTypeName('Indented.BuildInfo')]
-        [PSObject]$BuildInfo
+        [PSObject]$BuildInfo,
+
+        # Write missed commands using format table as they are discovered.
+        [Switch]$Tee
     )
 
     begin {
@@ -64,6 +69,27 @@ function Convert-CodeCoverage {
                         $buildExtent.StartLineNumber +
                         $sourceExtent.StartLineNumber
                 }
+            }
+
+            if ($Tee -and $category -eq 'MissedCommands') {
+                $CodeCoverage.$category | Format-Table @(
+                    @{ Name = 'File'; Expression = {
+                        if ($_.File -eq $buildInfo.Path.Build.RootModule) {
+                            $buildInfo.Path.Build.RootModule.Name
+                        } else {
+                            ($_.File -replace ([Regex]::Escape($buildInfo.Path.Source.Module))).TrimStart('\')
+                        }
+                    }}
+                    @{ Name = 'Name'; Expression = {
+                        if ($_.Class) {
+                            '{0}\{1}' -f $_.Class, $_.Function
+                        } else {
+                            $_.Function
+                        }
+                    }}
+                    'Line'
+                    'Command'
+                )
             }
         }
     }

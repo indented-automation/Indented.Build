@@ -1,4 +1,4 @@
-﻿BuildTask AddAppveyorCompilationMessage -Stage Test -Order 3 -If {
+﻿BuildTask AddAppveyorCompilationMessage -Stage Test -Order 1024 -If {
     $buildInfo.BuildSystem -eq 'AppVeyor'
 } -Definition {
     # Add a compilation message.
