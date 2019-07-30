@@ -1116,10 +1116,11 @@ task UpdateMetadata {
         if ($functionsToExport) {
             $aliasesToExport = foreach ($function in $functionsToExport) {
                 $function.ScriptBlock.Ast.FindAll( {
-                        param ( $ast )
+                    param ( $ast )
 
-                        $ast -is [System.Management.AUtomation.Language.AttributeAst] -and
-                        $ast.TypeName.Name -eq 'Alias'
+                    $ast -is [System.Management.Automation.Language.AttributeAst] -and
+                    $ast.TypeName.Name -eq 'Alias' -and
+                    $ast.Parent -is [System.Management.Automation.Language.ParamBlockAst]
                 }, $false).PositionalArguments.Value
             }
             if ($aliasesToExport) {
