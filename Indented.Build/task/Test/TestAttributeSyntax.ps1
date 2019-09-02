@@ -12,6 +12,14 @@ BuildTask TestAttributeSyntax -Stage Test -Order 1 -Definition {
             $buildInfo
         )
 
+        $path = Join-Path $buildInfo.Path.Source.Module 'test*'
+
+        if (Test-Path (Join-Path $path 'stub')) {
+            Get-ChildItem (Join-Path $path 'stub') -Filter *.psm1 -Recurse -Depth 1 | ForEach-Object {
+                Import-Module $_.FullName -Global -WarningAction SilentlyContinue
+            }
+        }
+
         Import-Module $buildInfo.Path.Build.Manifest
 
         $commonAttributes = [PowerShell].Assembly.GetTypes() |
