@@ -1,6 +1,6 @@
 image: Visual Studio 2017
 
-version: 3.1.2.{build}
+version: 3.1.3.{build}
 
 branches:
   only:
@@ -26,7 +26,7 @@ install:
 build_script:
   - ps: |
       Invoke-Build .\.build.bootstrap.ps1 -Task Build
-      Invoke-build -Task Setup, Build, Test -BuildInfo (Get-BuildInfo)
+      Invoke-Build -Task Setup, Build, Test -BuildInfo (Get-BuildInfo)
 
 test_script:
   - ps: Invoke-Build -Task Setup, Test -BuildInfo (Get-BuildInfo)
@@ -50,4 +50,3 @@ on_success:
       } else {
           Write-Host "Skipping publish: Last tag does not match build version" -ForegroundColor Yellow
       }
-

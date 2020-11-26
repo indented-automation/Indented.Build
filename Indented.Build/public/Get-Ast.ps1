@@ -18,6 +18,7 @@ function Get-Ast {
         [Parameter(ParameterSetName = 'FromScriptBlock')]
         [ScriptBlock]$ScriptBlock,
 
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '')]
         [Parameter(DontShow, ValueFromRemainingArguments)]
         $Discard
     )

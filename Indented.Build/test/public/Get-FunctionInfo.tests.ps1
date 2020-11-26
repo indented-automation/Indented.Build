@@ -1,57 +1,39 @@
-#region:TestFileHeader
-param (
-    [Boolean]$UseExisting
-)
+Describe Get-FunctionInfo -Tag CI {
+    BeforeAll {
+        Set-Content 'TestDrive:\script.ps1' -Value @(
+            'function FunctionA { }'
+            'function FunctionB {'
+            ''
+            '}'
+        )
 
-if (-not $UseExisting) {
-    $moduleBase = $psscriptroot.Substring(0, $psscriptroot.IndexOf("\test"))
-    $stubBase = Resolve-Path (Join-Path $moduleBase "test*\stub\*")
-    if ($null -ne $stubBase) {
-        $stubBase | Import-Module -Force
+        $defaultParams = @{
+            Path = 'TestDrive:\script.ps1'
+        }
     }
 
-    Import-Module $moduleBase -Force
-}
-#endregion
+    It 'Reads FunctionAst from a file and generates FunctionInfo objects' {
+        $functionInfo = Get-FunctionInfo @defaultParams
 
-InModuleScope Indented.Build {
-    Describe Get-FunctionInfo -Tag CI {
-        BeforeAll {
-            Set-Content 'TestDrive:\script.ps1' -Value @(
-                'function FunctionA { }'
-                'function FunctionB {'
-                ''
-                '}'
-            )
+        $functionInfo.Name | Should -Be 'FunctionA', 'FunctionB'
+    }
 
-            $defaultParams = @{
-                Path = 'TestDrive:\script.ps1'
-            }
-        }
+    It 'Adds position and file information to the functionInfo object' {
+        $functionInfo = Get-FunctionInfo @defaultParams
 
-        It 'Reads FunctionAst from a file and generates FunctionInfo objects' {
-            $functionInfo = Get-FunctionInfo @defaultParams
+        $functionInfo[0].Extent.File | Should -Be (Get-Item 'TestDrive:\script.ps1').FullName
+        $functionInfo[0].Extent.StartLineNumber | Should -Be 1
+        $functionInfo[1].Extent.StartLineNumber | Should -Be 2
+        $functionInfo[1].Extent.EndLineNumber | Should -Be 4
+    }
 
-            $functionInfo.Name | Should -Be 'FunctionA', 'FunctionB'
-        }
+    It 'Parses functions from a script block' {
+        $functionInfo = Get-FunctionInfo -ScriptBlock { function functionC { } }
 
-        It 'Adds position and file information to the functionInfo object' {
-            $functionInfo = Get-FunctionInfo @defaultParams
+        $functionInfo.Name | Should -Be 'FunctionC'
+    }
 
-            $functionInfo[0].Extent.File | Should -Be (Get-Item 'TestDrive:\script.ps1').FullName
-            $functionInfo[0].Extent.StartLineNumber | Should -Be 1
-            $functionInfo[1].Extent.StartLineNumber | Should -Be 2
-            $functionInfo[1].Extent.EndLineNumber | Should -Be 4
-        }
-
-        It 'Parses functions from a script block' {
-            $functionInfo = Get-FunctionInfo -ScriptBlock { function functionC { } }
-
-            $functionInfo.Name | Should -Be 'FunctionC'
-        }
-
-        It 'Writes an error if the path is invalid' {
-            { Get-FunctionInfo -Path TestDrive:\DoesNotExist.ps1 -ErrorAction Stop } | Should -Throw -ErrorId AstParserFailed
-        }
+    It 'Writes an error if the path is invalid' {
+        { Get-FunctionInfo -Path TestDrive:\DoesNotExist.ps1 -ErrorAction Stop } | Should -Throw -ErrorId 'AstParserFailed,Get-FunctionInfo'
     }
 }
