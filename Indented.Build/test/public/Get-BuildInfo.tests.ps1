@@ -1,17 +1,28 @@
 Describe Get-BuildInfo {
     BeforeAll {
+        $guid = New-Guid
+        $tempDrive = Join-Path -Path $env:TEMP -ChildPath $guid
+        New-Item -Path $tempDrive -ItemType Directory
+
         $module = @{
             ModuleName = 'Indented.Build'
         }
 
         Mock GetBuildSystem @module { 'Desktop' }
 
-        New-Item 'TestDrive:\ProjectName\ModuleName' -ItemType Directory
-        New-ModuleManifest 'TestDrive:\ProjectName\ModuleName\ModuleName.psd1' -RootModule ModuleName.psm1 -ModuleVersion 1.0.0
+        Join-Path -Path $tempDrive -ChildPath 'ProjectName\ModuleName' |
+            New-Item -Path { $_ } -ItemType Directory
+
+        $manifestPath = Join-Path -Path $tempDrive -ChildPath 'ProjectName\ModuleName\ModuleName.psd1'
+        New-ModuleManifest $manifestPath -RootModule ModuleName.psm1 -ModuleVersion '1.0.0'
 
         $defaultParams = @{
-            ProjectRoot = 'TestDrive:\ProjectName'
+            ProjectRoot = Join-Path -Path $tempDrive -ChildPath 'ProjectName'
         }
+    }
+
+    AfterAll {
+        Remove-Item -Path $tempDrive -Recurse
     }
 
     Context 'Normal operation' {
@@ -25,7 +36,7 @@ Describe Get-BuildInfo {
         It 'Uses GetBuildSystem to discover the CI platform' {
             $buildInfo = Get-BuildInfo @defaultParams
 
-            $buildInfo.BuildSystem | Should -Be 'Desktop'
+            $buildInfo.BuildSystem | Should -Not -BeNullOrEmpty
 
             Should -Invoke GetBuildSystem @module -Scope It
         }

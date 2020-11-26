@@ -32,6 +32,8 @@ test_script:
 
 on_success:
   - pwsh: |
+      Import-Module .\build\Indented.Build
+
       $buildInfo = Get-BuildInfo
       [Version]$tagVersion = (git describe --tags --abbrev=0 2>$null) -replace "^v"
 

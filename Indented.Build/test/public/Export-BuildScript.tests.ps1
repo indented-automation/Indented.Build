@@ -1,5 +1,9 @@
 Describe Export-BuildScript {
     BeforeAll {
+        $guid = New-Guid
+        $tempDrive = Join-Path -Path $env:TEMP -ChildPath $guid
+        New-Item $tempDrive -ItemType Directory
+
         Mock Get-BuildTask {
             [PSCustomObject]@{
                 Name       = 'CreatePackage'
@@ -31,14 +35,17 @@ Describe Export-BuildScript {
         $buildInfo = [PSCustomObject]@{
             PSTypeName = 'Indented.BuildInfo'
         }
+
+        $path = Join-Path -Path $tempDrive -ChildPath '.build.ps1'
+        Export-BuildScript -BuildInfo $buildInfo -Path $path
+        $script = Get-Content -Path $path -Raw
+    }
+
+    AfterAll {
+        Remove-Item -Path $tempDrive -Recurse
     }
 
     Context 'Command insertion' {
-        BeforeAll {
-            Export-BuildScript -BuildInfo $buildInfo -Path 'TestDrive:\.build.ps1'
-            $script = Get-Content -Path 'TestDrive:\.build.ps1' -Raw
-        }
-
         It 'Inserts commands required by Get-BuildInfo' {
             $script | Should -Match 'function GetBuildSystem'
         }
@@ -58,11 +65,6 @@ Describe Export-BuildScript {
     }
 
     Context 'Task insertion' {
-        BeforeAll {
-            Export-BuildScript -BuildInfo $buildInfo -Path 'TestDrive:\.build.ps1'
-            $script = Get-Content -Path 'TestDrive:\.build.ps1' -Raw
-        }
-
         It 'Inserts the task <Name> returned by Get-BuildTask' -TestCases @(
             @{ Name = 'CreatePackage' }
             @{ Name = 'NUnitTest' }
@@ -89,11 +91,6 @@ Describe Export-BuildScript {
     }
 
     Context 'Summary tasks insertion' {
-        BeforeAll {
-            Export-BuildScript -BuildInfo $buildInfo -Path 'TestDrive:\.build.ps1'
-            $script = Get-Content -Path 'TestDrive:\.build.ps1' -Raw
-        }
-
         It 'Inserts summary tasks' {
             $script | Should -Match 'task Build'
             $script | Should -Match 'task Test'

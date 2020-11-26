@@ -1,33 +1,40 @@
 Describe Get-BuildItem {
     BeforeAll {
+        $guid = New-Guid
+        $tempDrive = Join-Path -Path $env:TEMP -ChildPath $guid
+
         $toMerge = @(
-            New-Item 'TestDrive:\enumeration\enum1.ps1' -Force -Value 'enum enum1 { }'
-            New-Item 'TestDrive:\private\priv1.ps1' -Force -Value 'function priv1 { }'
-            New-Item 'TestDrive:\public\pub1.ps1' -Force -Value 'function pub1 { }'
-            New-Item 'TestDrive:\public\nested\pub2.ps1' -Force -Value 'function pub2 { }'
-            New-Item 'TestDrive:\public\empty1.ps1' -Force
-            New-Item 'TestDrive:\InitializeModule.ps1' -Force -Value 'function InitializeModule { }'
+            New-Item (Join-Path -Path $tempDrive -ChildPath 'enumeration\enum1.ps1') -Force -Value 'enum enum1 { }'
+            New-Item (Join-Path -Path $tempDrive -ChildPath 'private\priv1.ps1') -Force -Value 'function priv1 { }'
+            New-Item (Join-Path -Path $tempDrive -ChildPath 'public\pub1.ps1') -Force -Value 'function pub1 { }'
+            New-Item (Join-Path -Path $tempDrive -ChildPath 'public\nested\pub2.ps1') -Force -Value 'function pub2 { }'
+            New-Item (Join-Path -Path $tempDrive -ChildPath 'public\public\empty1.ps1') -Force
+            New-Item (Join-Path -Path $tempDrive -ChildPath 'InitializeModule.ps1') -Force -Value 'function InitializeModule { }'
         )
         $toCopy = @(
-            New-Item 'TestDrive:\ModuleName.format.ps1xml' -Force
-            New-Item 'TestDrive:\other\name.txt' -Force
+            New-Item (Join-Path -Path $tempDrive -ChildPath 'ModuleName.format.ps1xml') -Force
+            New-Item (Join-Path -Path $tempDrive -ChildPath 'other\name.txt') -Force
         )
         $toIgnore = @(
-            New-Item 'TestDrive:\class\class1.cs' -Force
-            New-Item 'TestDrive:\test\test1.tests.ps1' -Force
-            New-Item 'TestDrive:\help\pub1.md' -Force
+            New-Item (Join-Path -Path $tempDrive -ChildPath 'class\class1.cs') -Force
+            New-Item (Join-Path -Path $tempDrive -ChildPath 'test\test1.tests.ps1') -Force
+            New-Item (Join-Path -Path $tempDrive -ChildPath 'help\pub1.md') -Force
         )
 
         $params = @{
             BuildInfo = [PSCustomObject]@{
                 Path = [PSCustomObject]@{
                     Source = [PSCustomobject]@{
-                        Module = 'TestDrive:\'
+                        Module = $tempDrive
                     }
                 }
                 PSTypeName = 'Indented.BuildInfo'
             }
         }
+    }
+
+    AfterAll {
+        Remove-Item -Path $tempDrive -Recurse
     }
 
     Context 'ShouldMerge' {

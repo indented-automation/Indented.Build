@@ -1,6 +1,10 @@
 Describe Get-FunctionInfo -Tag CI {
     BeforeAll {
-        Set-Content 'TestDrive:\script.ps1' -Value @(
+        $guid = New-Guid
+        $tempDrive = Join-Path -Path $env:TEMP -ChildPath $guid
+        New-Item -Path $tempDrive -ItemType Directory
+
+        Set-Content -Path (Join-Path -Path $tempDrive -ChildPath 'script.ps1') -Value @(
             'function FunctionA { }'
             'function FunctionB {'
             ''
@@ -8,8 +12,12 @@ Describe Get-FunctionInfo -Tag CI {
         )
 
         $defaultParams = @{
-            Path = 'TestDrive:\script.ps1'
+            Path = Join-Path -Path $tempDrive -ChildPath 'script.ps1'
         }
+    }
+
+    AfterAll {
+        Remove-Item -Path $tempDrive -Recurse
     }
 
     It 'Reads FunctionAst from a file and generates FunctionInfo objects' {
@@ -21,7 +29,7 @@ Describe Get-FunctionInfo -Tag CI {
     It 'Adds position and file information to the functionInfo object' {
         $functionInfo = Get-FunctionInfo @defaultParams
 
-        $functionInfo[0].Extent.File | Should -Be (Get-Item 'TestDrive:\script.ps1').FullName
+        $functionInfo[0].Extent.File | Should -Be (Join-Path -Path $tempDrive -ChildPath 'script.ps1')
         $functionInfo[0].Extent.StartLineNumber | Should -Be 1
         $functionInfo[1].Extent.StartLineNumber | Should -Be 2
         $functionInfo[1].Extent.EndLineNumber | Should -Be 4
