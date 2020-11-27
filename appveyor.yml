@@ -27,7 +27,7 @@ build_script:
 
 test_script:
   - pwsh: |
-      Import-Module .\build\Indented.Build
+      Import-Module .\build\Indented.Build -Force
       Invoke-Build -Task Setup, Test -BuildInfo (Get-BuildInfo)
 
 on_success:

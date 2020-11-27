@@ -26,8 +26,7 @@ task Setup SetBuildInfo,
            UpdateRequiredModules,
            UpdateAppVeyorVersion
 
-task Test TestModuleImport,
-          TestAttributeSyntax,
+task Test TestAttributeSyntax,
           PSScriptAnalyzer,
           TestModule,
           AddAppveyorCompilationMessage,
@@ -451,6 +450,7 @@ function Get-Ast {
 
     [CmdletBinding(DefaultParameterSetName = 'FromPath')]
     [OutputType([System.Management.Automation.Language.ScriptBlockAst])]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '')]
     param (
         # The path to a file containing one or more functions.
         [Parameter(Position = 1, ValueFromPipeline, ValueFromPipelineByPropertyName, ParameterSetName = 'FromPath')]
@@ -593,46 +593,48 @@ function Get-BuildItem {
         [Switch]$ExcludeClass
     )
 
-    try {
-        Push-Location $buildInfo.Path.Source.Module
+    process {
+        try {
+            Push-Location $buildInfo.Path.Source.Module
 
-        $itemTypes = [Ordered]@{
-            enumeration    = 'enum*'
-            class          = 'class*'
-            private        = 'priv*'
-            public         = 'pub*'
-            initialisation = 'InitializeModule.ps1'
-        }
-
-        if ($Type -eq 'ShouldMerge') {
-            foreach ($itemType in $itemTypes.Keys) {
-                if ($itemType -ne 'class' -or ($itemType -eq 'class' -and -not $ExcludeClass)) {
-                    Get-ChildItem $itemTypes[$itemType] -Recurse -ErrorAction SilentlyContinue |
-                        Where-Object { -not $_.PSIsContainer -and $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
-                        Add-Member -NotePropertyName 'BuildItemType' -NotePropertyValue $itemType -PassThru
-                }
+            $itemTypes = [Ordered]@{
+                enumeration    = 'enum*'
+                class          = 'class*'
+                private        = 'priv*'
+                public         = 'pub*'
+                initialisation = 'InitializeModule.ps1'
             }
-        } elseif ($Type -eq 'Static') {
-            [String[]]$exclude = $itemTypes.Values + '*.config', 'test*', 'doc*', 'help', '.build*.ps1', 'build.psd1'
 
-            foreach ($item in Get-ChildItem) {
-                $shouldExclude = $false
-
-                foreach ($exclusion in $exclude) {
-                    if ($item.Name -like $exclusion) {
-                        $shouldExclude = $true
+            if ($Type -eq 'ShouldMerge') {
+                foreach ($itemType in $itemTypes.Keys) {
+                    if ($itemType -ne 'class' -or ($itemType -eq 'class' -and -not $ExcludeClass)) {
+                        Get-ChildItem $itemTypes[$itemType] -Recurse -ErrorAction SilentlyContinue |
+                            Where-Object { -not $_.PSIsContainer -and $_.Extension -eq '.ps1' -and $_.Length -gt 0 } |
+                            Add-Member -NotePropertyName 'BuildItemType' -NotePropertyValue $itemType -PassThru
                     }
                 }
+            } elseif ($Type -eq 'Static') {
+                [String[]]$exclude = $itemTypes.Values + '*.config', 'test*', 'doc*', 'help', '.build*.ps1', 'build.psd1'
 
-                if (-not $shouldExclude) {
-                    $item
+                foreach ($item in Get-ChildItem) {
+                    $shouldExclude = $false
+
+                    foreach ($exclusion in $exclude) {
+                        if ($item.Name -like $exclusion) {
+                            $shouldExclude = $true
+                        }
+                    }
+
+                    if (-not $shouldExclude) {
+                        $item
+                    }
                 }
             }
+        } catch {
+            $pscmdlet.ThrowTerminatingError($_)
+        } finally {
+            Pop-Location
         }
-    } catch {
-        $pscmdlet.ThrowTerminatingError($_)
-    } finally {
-        Pop-Location
     }
 }
 
@@ -1227,32 +1229,6 @@ task UpdateMarkdownHelp {
     }
 }
 
-task TestModuleImport {
-    # Test that the module imports.
-
-    $script = {
-        param (
-            $buildInfo
-        )
-
-        $path = Join-Path $buildInfo.Path.Source.Module 'test*'
-
-        if (Test-Path (Join-Path $path 'stub')) {
-            Get-ChildItem (Join-Path $path 'stub') -Filter *.psm1 -Recurse -Depth 1 | ForEach-Object {
-                Import-Module $_.FullName -Global -WarningAction SilentlyContinue
-            }
-        }
-
-        Import-Module $buildInfo.Path.Build.Manifest.FullName -ErrorAction Stop
-    }
-
-    if ($buildInfo.BuildSystem -eq 'Desktop') {
-        Start-Job -ArgumentList $buildInfo -ScriptBlock $script | Receive-Job -Wait -ErrorAction Stop
-    } else {
-        & $script -BuildInfo $buildInfo
-    }
-}
-
 task TestAttributeSyntax {
     # Attempt to test whether or not attributes used within a script contain errors.
     #
@@ -1418,7 +1394,7 @@ task TestModule {
                 ))
             }
             Output       = @{
-                Verbosity = 'Detailed'
+                Verbosity = 'Diagnostic'
             }
         }
         $pester = Invoke-Pester -Configuration $configuration

@@ -35,7 +35,7 @@ BuildTask TestModule -Stage Test -Order 3 -Definition {
                 ))
             }
             Output       = @{
-                Verbosity = 'Detailed'
+                Verbosity = 'Diagnostic'
             }
         }
         $pester = Invoke-Pester -Configuration $configuration
