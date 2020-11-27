@@ -1,8 +1,17 @@
 Describe Start-Build -Tag CI {
     BeforeAll {
+        Write-Host 'Creating tempDrive'
+
         $guid = New-Guid
         $tempDrive = Join-Path -Path $env:TEMP -ChildPath $guid
+
+        Write-Host $tempDrive
+
         New-Item -Path $tempDrive -ItemType Directory
+        Join-Path -Path $tempDrive -ChildPath 'Module\Module' |
+            New-Item -Path { $_ } -ItemType Directory
+
+        Write-Host "Test-Path: $(Test-Path $tempDrive)"
 
         Mock Export-BuildScript {
             $filePath = Join-Path -Path $tempDrive -ChildPath 'Module\.build.ps1'
@@ -12,9 +21,6 @@ Describe Start-Build -Tag CI {
                 'Task default { }'
             )
         }
-
-        Join-Path -Path $tempDrive -ChildPath 'Module\Module' |
-            New-Item -Path { $_ } -ItemType Directory
 
         $defaultParams = @{
             BuildType = 'default'
@@ -44,6 +50,6 @@ Describe Start-Build -Tag CI {
     It 'Removes the generated build script' {
         Start-Build @defaultParams
 
-        'TestDrive:\Module\.build.ps1' | Should -Not -Exist
+        Join-Path -Path $tempDrive -ChildPath 'Module\.build.ps1' | Should -Not -Exist
     }
 }
